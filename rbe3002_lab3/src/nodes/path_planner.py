@@ -22,12 +22,15 @@ class PathPlanner:
         ## Create a new service called "plan_path" that accepts messages of
         ## type GetPlan and calls self.plan_path() when a message is received
         # TODO
+        
         ## Create a publisher for the C-space (the enlarged occupancy grid)
         ## The topic is "/path_planner/cspace", the message type is GridCells
         # TODO
+        rospy.publisher('/path_planner/cspace', GridCells, queue_size = 10)
         ## Create publishers for A* (expanded cells, frontier, ...)
         ## Choose a the topic names, the message type is GridCells
         # TODO
+        rospy.publisher('topic', GridCells, queue_size = 10)
         ## Initialize the request counter
         # TODO
         ## Sleep to allow roscore to do some housekeeping
@@ -44,8 +47,9 @@ class PathPlanner:
         :param y [int] The cell Y coordinate.
         :return  [int] The index.
         """
-        ### REQUIRED CREDIT
-        pass
+        ### REQUIRED CREDIT]
+        #how get wi
+        index = y * mapdata.info.width + x
 
 
 
@@ -60,7 +64,7 @@ class PathPlanner:
         :return   [float]        The distance.
         """
         ### REQUIRED CREDIT
-        pass
+        distance = sqrt((x2 - x1)**2 + (y2 - y1)**2)
         
 
 
@@ -74,7 +78,8 @@ class PathPlanner:
         :return        [Point]         The position in the world.
         """
         ### REQUIRED CREDIT
-        pass
+        worldCoordx = (x + 0.5) * mapdata.info.resolution + mapdata.info.position.x
+        worldCoordy = (y + 0.5) * mapdata.info.resolution + mapdata.info.position.y
 
 
         
@@ -87,7 +92,9 @@ class PathPlanner:
         :return        [(int,int)]     The cell position as a tuple.
         """
         ### REQUIRED CREDIT
-        pass
+        #change the wp.x and wp.y to what they actually will be later on
+        gridCoordx = int((wp.x - mapdata.info.origin.position.x) / mapdata.info.resolution)
+        gridCoordy = int((wp.y - mapdata.info.origin.position.y) / mapdata.info.resolution)
 
 
         

@@ -48,8 +48,16 @@ class PathPlanner:
         :return  [int] The index.
         """
         ### REQUIRED CREDIT]
-        #how get wi
         index = y * mapdata.info.width + x
+        return index
+
+    
+    @staticmethod
+    def index_to_grid(mapdata, index):
+        """
+        Returns the grid coordinate corresponding to the given index
+        """
+        
 
 
 
@@ -123,7 +131,11 @@ class PathPlanner:
         :return        [boolean]       True if the cell is walkable, False otherwise
         """
         ### REQUIRED CREDIT
-        pass
+        value = grid_to_index(mapdata, x, y)
+        if(value == 0 and x < mapdata.info.width and x > 0 and y < mapdata.info.height and y > 0):
+            return true
+        else:
+            return false
 
                
 
@@ -151,6 +163,10 @@ class PathPlanner:
         :return        [[(int,int)]]   A list of walkable 8-neighbors.
         """
         ### REQUIRED CREDIT
+        walkableList = []
+
+        
+
         pass
 
     
@@ -179,7 +195,14 @@ class PathPlanner:
         rospy.loginfo("Calculating C-Space")
         ## Go through each cell in the occupancy grid
         ## Inflate the obstacles where necessary
-        # TODO
+        # TODO 
+        #index_to_grid
+        for i in range(mapdata.info.width):
+            index_to_grid(mapdata, i)
+            #neighbors of 8
+            #is walkable
+            #grid to index
+
         ## Create a GridCells message and publish it
         # TODO
         ## Return the C-space

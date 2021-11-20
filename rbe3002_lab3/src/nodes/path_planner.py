@@ -2,7 +2,7 @@
 
 import math
 import rospy
-from nav_msgs.srv import GetPlan, GetMap, GetMapResponse
+from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
@@ -28,14 +28,15 @@ class PathPlanner:
         ### REQUIRED CREDIT
         ## Initialize the node and call it "path_planner"
         rospy.init_node("path_planner")
+
         ## Create a new service called "plan_path" that accepts messages of
         ## type GetPlan and calls self.plan_path() when a message is received
-        # TODO
+        s = rospy.Service('plan_path', GetPlan, self.plan_path)
         
         ## Create a publisher for the C-space (the enlarged occupancy grid)
         ## The topic is "/path_planner/cspace", the message type is GridCells
-        # TODO
-        rospy.publisher('/path_planner/cspace', GridCells, queue_size = 10)
+        cspace_pub = rospy.Publisher('/path_planner/cspace', GridCells, queue_size = 10)
+        
         ## Create publishers for A* (expanded cells, frontier, ...)
         ## Choose the topic names, the message type is GridCells
         expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
@@ -44,6 +45,7 @@ class PathPlanner:
         
         ## Initialize the request counter
         # TODO
+
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1.0)
         rospy.loginfo("Path planner node ready")

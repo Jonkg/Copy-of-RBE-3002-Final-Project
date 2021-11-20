@@ -2,11 +2,16 @@
 
 import math
 import rospy
-from nav_msgs.srv import GetPlan, GetMap
+from nav_msgs.srv import GetPlan, GetMap, GetMapResponse
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
+global map
 
+class Coord:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
 class PathPlanner:
 
@@ -32,7 +37,7 @@ class PathPlanner:
         ## Choose the topic names, the message type is GridCells
         expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
         fronteir_pub = rospy.Publisher('/path_planner/fronteir', GridCells, queue_size = 10)
-        unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10))
+        unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10)
         
         ## Initialize the request counter
         requestCounter = 0
@@ -51,7 +56,7 @@ class PathPlanner:
         :param y [int] The cell Y coordinate.
         :return  [int] The index.
         """
-        ### REQUIRED CREDIT]
+        ### REQUIRED CREDIT
         index = y * mapdata.info.width + x
         return index
 
@@ -61,6 +66,9 @@ class PathPlanner:
         """
         Returns the grid coordinate corresponding to the given index
         """
+        x = index % mapdata.info.width
+        y = (index - x) / mapdata.info.width
+        return Coord(x,y)
         
 
 
@@ -153,7 +161,17 @@ class PathPlanner:
         :return        [[(int,int)]]   A list of walkable 4-neighbors.
         """
         ### REQUIRED CREDIT
-        pass
+        index = PathPlanner.grid_to_index(mapdata, x, y)
+
+        # Get index of the 4 adjacent cells
+        neighbors = []
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-1))                        # left
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+1))                        # right
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width))      # up
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width))      # down
+
+        # return list of coordinates of 4 neighbors
+        return neighbors           
 
     
     
@@ -167,11 +185,21 @@ class PathPlanner:
         :return        [[(int,int)]]   A list of walkable 8-neighbors.
         """
         ### REQUIRED CREDIT
-        walkableList = []
+        index = PathPlanner.grid_to_index(mapdata, x, y)
 
-        
+        # Get index of the 8 adjacent cells
+        neighbors = []
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-1))                        # left
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+1))                        # right
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width))      # up
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width))      # down
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width-1))    # up and left
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width+1))    # up and right
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width-1))    # down and left
+        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width+1))    # down and right
 
-        pass
+        # return list of coordinates of 8 neighbors
+        return neighbors
 
     
     
@@ -184,6 +212,14 @@ class PathPlanner:
         """
         ### REQUIRED CREDIT
         rospy.loginfo("Requesting the map")
+        rospy.wait_for_service('static_map')
+        try: 
+            get_map = rospy.ServiceProxy('static_map', GetMap)
+            resp = get_map()
+            rospy.loginfo("Got map succesfully")
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
 
 
 
@@ -271,6 +307,10 @@ class PathPlanner:
         """
         Runs the node until Ctrl-C is pressed.
         """
+        map = PathPlanner.request_map()
+        coords = PathPlanner.neighbors_of_8(map, 1, 1)
+        for coord in coords:
+            print("Neighbor coordinates: (%d, %d)", coord.x, coord.y)
         rospy.spin()
 
 

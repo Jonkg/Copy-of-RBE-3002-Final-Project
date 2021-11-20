@@ -2,9 +2,14 @@
 
 import math
 import rospy
+
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
+
+import sys
+sys.path.append("~/catkin_ws/src/rbe3002_lab3/src/nodes/priority_queue.py")
+import priority_queue
 
 
 
@@ -19,24 +24,20 @@ class PathPlanner:
         ### REQUIRED CREDIT
         ## Initialize the node and call it "path_planner"
         rospy.init_node("path_planner")
-
         ## Create a new service called "plan_path" that accepts messages of
         ## type GetPlan and calls self.plan_path() when a message is received
-        s = rospy.Service('plan_path', GetPlan, self.plan_path)
-
+        # TODO
+        
         ## Create a publisher for the C-space (the enlarged occupancy grid)
         ## The topic is "/path_planner/cspace", the message type is GridCells
-        cspace_pub = rospy.Publisher('/path_planner/cspace', GridCells, queue_size = 10)
-        
+        # TODO
+        rospy.publisher('/path_planner/cspace', GridCells, queue_size = 10)
         ## Create publishers for A* (expanded cells, frontier, ...)
-        ## Choose the topic names, the message type is GridCells
-        expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
-        fronteir_pub = rospy.Publisher('/path_planner/fronteir', GridCells, queue_size = 10)
-        unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10))
-        
+        ## Choose a the topic names, the message type is GridCells
+        # TODO
+        rospy.publisher('topic', GridCells, queue_size = 10)
         ## Initialize the request counter
-        requestCounter = 0
-
+        # TODO
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1.0)
         rospy.loginfo("Path planner node ready")
@@ -135,11 +136,11 @@ class PathPlanner:
         :return        [boolean]       True if the cell is walkable, False otherwise
         """
         ### REQUIRED CREDIT
-        value = grid_to_index(mapdata, x, y)
+        value = PathPlanner.grid_to_index(mapdata, x, y)
         if(value == 0 and x < mapdata.info.width and x > 0 and y < mapdata.info.height and y > 0):
-            return true
+            return True
         else:
-            return false
+            return False
 
                
 
@@ -168,7 +169,6 @@ class PathPlanner:
         """
         ### REQUIRED CREDIT
         walkableList = []
-
         
 
         pass
@@ -202,7 +202,7 @@ class PathPlanner:
         # TODO 
         #index_to_grid
         for i in range(mapdata.info.width):
-            index_to_grid(mapdata, i)
+            PathPlanner.index_to_grid(mapdata, i)
             #neighbors of 8
             #is walkable
             #grid to index
@@ -217,6 +217,29 @@ class PathPlanner:
     def a_star(self, mapdata, start, goal):
         ### REQUIRED CREDIT
         rospy.loginfo("Executing A* from (%d,%d) to (%d,%d)" % (start[0], start[1], goal[0], goal[1]))
+        
+        frontier = priority_queue.PriorityQueue
+        frontier.put(start, 0)
+        came_from = {}
+        cost_so_far = {}
+        came_from[start] = None
+        cost_so_far[start] = 0
+
+        while not frontier.empty():
+            current = frontier.get()
+
+            if current == goal:
+                break
+
+            #for next in graph.neighbors(current)
+                #new_cost = cost_so_far[current] + graph.cost(current, next)
+                #if next not in cost_so_far or new_cost < cost_so_far[next]
+                #   cost_so_far[next] = new_cost
+                #   priority = new_cost + heuristic(goal, next)
+                #   frontier.put(next, priority)
+                #   came_from[next] = current
+
+
 
 
     

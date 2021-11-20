@@ -147,9 +147,13 @@ class PathPlanner:
         :return        [boolean]       True if the cell is walkable, False otherwise
         """
         ### REQUIRED CREDIT
-        value = PathPlanner.grid_to_index(mapdata, x, y)
-        if(value == 0 and x < mapdata.info.width and x > 0 and y < mapdata.info.height and y > 0):
-            return True
+        if (x < mapdata.info.width and x >= 0 and y < mapdata.info.height and y >= 0):
+            index = PathPlanner.grid_to_index(mapdata, x, y)
+            value = mapdata.data[index]
+            if (value == 0):
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -169,10 +173,10 @@ class PathPlanner:
 
         # Get index of the 4 adjacent cells
         neighbors = []
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-1))                        # left
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+1))                        # right
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width))      # up
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width))      # down
+        neighbors.append(Coord(x-1,y))      # left
+        neighbors.append(Coord(x+1,y))      # right
+        neighbors.append(Coord(x,y-1))      # up
+        neighbors.append(Coord(x,y+1))      # down
 
         # return list of coordinates of 4 neighbors
         return neighbors           
@@ -193,14 +197,14 @@ class PathPlanner:
 
         # Get index of the 8 adjacent cells
         neighbors = []
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-1))                        # left
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+1))                        # right
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width))      # up
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width))      # down
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width-1))    # up and left
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index-mapdata.info.width+1))    # up and right
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width-1))    # down and left
-        neighbors.append(PathPlanner.index_to_grid(mapdata, index+mapdata.info.width+1))    # down and right
+        neighbors.append(Coord(x-1,y))      # left
+        neighbors.append(Coord(x+1,y))      # right
+        neighbors.append(Coord(x,y-1))      # up
+        neighbors.append(Coord(x,y+1))      # down
+        neighbors.append(Coord(x-1,y-1))    # up, left
+        neighbors.append(Coord(x+1,y-1))    # up, right
+        neighbors.append(Coord(x-1,y+1))    # down, left
+        neighbors.append(Coord(x+1,y+1))    # down, right
 
         # return list of coordinates of 8 neighbors
         return neighbors
@@ -335,9 +339,13 @@ class PathPlanner:
         Runs the node until Ctrl-C is pressed.
         """
         map = PathPlanner.request_map()
-        coords = PathPlanner.neighbors_of_8(map, 1, 1)
+        coords = PathPlanner.neighbors_of_8(map, 37, 37)
         for coord in coords:
             print("Neighbor coordinates: (%d, %d)", coord.x, coord.y)
+            if (PathPlanner.is_cell_walkable(map, coord.x, coord.y)):
+                print("     Valid")
+            else:
+                print("     Invalid")
         rospy.spin()
 
 

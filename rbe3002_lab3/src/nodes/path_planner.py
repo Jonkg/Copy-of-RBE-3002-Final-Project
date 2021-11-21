@@ -2,6 +2,7 @@
 
 import math
 import rospy
+import std_msgs.msg
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
@@ -35,7 +36,7 @@ class PathPlanner:
         
         ## Create a publisher for the C-space (the enlarged occupancy grid)
         ## The topic is "/path_planner/cspace", the message type is GridCells
-        cspace_pub = rospy.Publisher('/path_planner/cspace', GridCells, queue_size = 10)
+        self.cspace_pub = rospy.Publisher('/path_planner/cspace', GridCells, queue_size = 10)
         
         ## Create publishers for A* (expanded cells, frontier, ...)
         ## Choose the topic names, the message type is GridCells
@@ -102,8 +103,9 @@ class PathPlanner:
         :return        [Point]         The position in the world.
         """
         ### REQUIRED CREDIT
-        worldCoordx = (x + 0.5) * mapdata.info.resolution + mapdata.info.position.x
-        worldCoordy = (y + 0.5) * mapdata.info.resolution + mapdata.info.position.y
+        worldCoordx = (x + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.x
+        worldCoordy = (y + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.y
+        return(Point(worldCoordx, worldCoordy, 0))
 
 
         
@@ -119,7 +121,7 @@ class PathPlanner:
         #change the wp.x and wp.y to what they actually will be later on
         gridCoordx = int((wp.x - mapdata.info.origin.position.x) / mapdata.info.resolution)
         gridCoordy = int((wp.y - mapdata.info.origin.position.y) / mapdata.info.resolution)
-
+        return (gridCoordx, gridCoordy)
 
         
     @staticmethod
@@ -243,18 +245,47 @@ class PathPlanner:
         rospy.loginfo("Calculating C-Space")
         ## Go through each cell in the occupancy grid
         ## Inflate the obstacles where necessary
-        # TODO 
-        #index_to_grid
-        for i in range(mapdata.info.width):
-            PathPlanner.index_to_grid(mapdata, i)
-            #neighbors of 8
-            #is walkable
-            #grid to index
+        cspace_data = []
+        added_cells = []
+
+        curr_occ_gri = mapdata
+
+        while (padding > 0):
+            for cell_index in range(len(curr_occ_gri.data)):
+                if (curr_occ_gri.data[cell_index] == 0):
+                    coord = PathPlanner.index_to_grid(curr_occ_gri, cell_index)
+                    neighbors = PathPlanner.neighbors_of_8(curr_occ_gri, coord.x, coord.y)
+                    adjacentToObstacle = False
+                    for neighbor in neighbors:
+                        neighbor_index = PathPlanner.grid_to_index(curr_occ_gri, neighbor.x, neighbor.y)
+                        if (curr_occ_gri.data[neighbor_index] != 0):
+                            adjacentToObstacle = True
+                    if (adjacentToObstacle):
+                        cspace_data.append(100)
+                        added_cells.append(PathPlanner.grid_to_world(curr_occ_gri, coord.x, coord.y))
+                    else:
+                        cspace_data.append(0)
+                else:
+                    cspace_data.append(100)  
+            padding = padding - 1
+            curr_occ_gri = OccupancyGrid(mapdata.header, mapdata.info, cspace_data)
 
         ## Create a GridCells message and publish it
-        # TODO
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        cell_width = mapdata.info.resolution
+        cell_height = mapdata.info.resolution
+        c_space_obstacles = GridCells(h, cell_width, cell_height, added_cells)
+        self.cspace_pub.publish(c_space_obstacles)
+
         ## Return the C-space
-        pass
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        c_space = OccupancyGrid(h, mapdata.info, cspace_data)
+        rospy.loginfo("Finished!")
+        return c_space
 
 
     
@@ -339,13 +370,7 @@ class PathPlanner:
         Runs the node until Ctrl-C is pressed.
         """
         map = PathPlanner.request_map()
-        coords = PathPlanner.neighbors_of_8(map, 37, 37)
-        for coord in coords:
-            print("Neighbor coordinates: (%d, %d)", coord.x, coord.y)
-            if (PathPlanner.is_cell_walkable(map, coord.x, coord.y)):
-                print("     Valid")
-            else:
-                print("     Invalid")
+        self.calc_cspace(map, 2)
         rospy.spin()
 
 

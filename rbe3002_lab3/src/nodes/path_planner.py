@@ -1,22 +1,66 @@
 #!/usr/bin/env python
 
 import math
+import heapq
 import rospy
 import std_msgs.msg
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
-import sys
-sys.path.append("~/catkin_ws/src/rbe3002_lab3/src/nodes/priority_queue.py")
-import priority_queue
-
 global map
+
+
 
 class Coord:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+
+
+
+class PriorityQueue:
+
+    def __init__(self):
+        """
+        Class constructor.
+        """
+        self.elements = []
+
+    def empty(self):
+        """
+        Returns True if the queue is empty, False otherwise.
+        """
+        return len(self.elements) == 0
+
+    def put(self, element, priority):
+        """
+        Puts an element in the queue.
+        :param element  [any type]     The element.
+        :param priority [int or float] The priority.
+        """
+        for i in range(0, len(self.elements)):
+            it = self.elements[i]
+            if (it[1] == element):
+                if (it[0] > priority):
+                    self.elements[i] = (priority, element)
+                    heapq.heapify(self.elements)
+                return
+        heapq.heappush(self.elements, (priority, element))
+
+    def get(self):
+        """
+        Returns the element with the top priority.
+        """
+        return heapq.heappop(self.elements)[1]
+    
+    def get_queue(self):
+        """
+        Returns the content of the queue as a list.
+	"""
+        return self.elements
+
+
 
 class PathPlanner:
 
@@ -42,7 +86,7 @@ class PathPlanner:
         ## Choose the topic names, the message type is GridCells
         self.expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
         self.frontier_pub = rospy.Publisher('/path_planner/frontier', GridCells, queue_size = 10)
-        self.unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10)
+        self.goal_pub = rospy.Publisher('/path_planner/goal', GridCells, queue_size = 10)
         
         ## Initialize the request counter
         # TODO
@@ -89,7 +133,8 @@ class PathPlanner:
         :return   [float]        The distance.
         """
         ### REQUIRED CREDIT
-        distance = sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        return distance
         
 
 
@@ -284,17 +329,27 @@ class PathPlanner:
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         c_space = OccupancyGrid(h, mapdata.info, cspace_data)
-        rospy.loginfo("Finished!")
         return c_space
 
 
     
     def a_star(self, mapdata, start, goal):
         ### REQUIRED CREDIT
-        rospy.loginfo("Executing A* from (%d,%d) to (%d,%d)" % (start[0], start[1], goal[0], goal[1]))
-        
-        frontier = priority_queue.PriorityQueue
+        rospy.loginfo("Executing A* from (%d,%d) to (%d,%d)" % (start.x, start.y, goal.x, goal.y))
+
+        ## Publish GridCells msg with goal cell
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
+
+        frontier_cells_list = []
+        expanded_cells_list = []
+
+        frontier = PriorityQueue()
         frontier.put(start, 0)
+        frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, start.x, start.y))
+
         came_from = {}
         cost_so_far = {}
         came_from[start] = None
@@ -302,21 +357,42 @@ class PathPlanner:
 
         while not frontier.empty():
             current = frontier.get()
+            expanded_cells_list.append(PathPlanner.grid_to_world(mapdata, current.x, current.y))
 
-            if current == goal:
+            if (current.x == goal.x and current.y == current.y):
                 break
 
-            #for next in graph.neighbors(current)
-                #new_cost = cost_so_far[current] + graph.cost(current, next)
-                #if next not in cost_so_far or new_cost < cost_so_far[next]
-                #   cost_so_far[next] = new_cost
-                #   priority = new_cost + heuristic(goal, next)
-                #   frontier.put(next, priority)
-                #   came_from[next] = current
+            for next in PathPlanner.neighbors_of_8(mapdata, current.x, current.y):
+                index = PathPlanner.grid_to_index(mapdata, next.x, next.y)
 
+                if (mapdata.data[index] == 0):
+                    new_cost = cost_so_far[current] + mapdata.info.resolution
+                    if (next not in cost_so_far or new_cost < cost_so_far[next]):
+                        cost_so_far[next] = new_cost
+                        priority = new_cost + PathPlanner.euclidean_distance(next.x, next.y, goal.x, goal.y)
+                        frontier.put(next, priority)
+                        frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, next.x, next.y))
+                        came_from[next] = current
 
+            ## Publish GridCells msg with current frontier
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells_list)
+            self.frontier_pub.publish(frontier_grid_cells)
 
+            ## Publish GridCells msg with current expanded cells
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells_list)
+            self.expanded_pub.publish(expanded_grid_cells)
 
+            rospy.sleep(0.01)
+
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
     
     @staticmethod
     def optimize_path(path):
@@ -370,7 +446,10 @@ class PathPlanner:
         Runs the node until Ctrl-C is pressed.
         """
         map = PathPlanner.request_map()
-        self.calc_cspace(map, 2)
+        cspace = self.calc_cspace(map, 1)
+        start = Coord(2,2)
+        goal = Coord(34,34)
+        self.a_star(cspace, start, goal)
         rospy.spin()
 
 

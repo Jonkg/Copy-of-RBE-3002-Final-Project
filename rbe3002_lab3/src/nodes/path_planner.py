@@ -87,6 +87,9 @@ class PathPlanner:
         self.expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
         self.frontier_pub = rospy.Publisher('/path_planner/frontier', GridCells, queue_size = 10)
         self.goal_pub = rospy.Publisher('/path_planner/goal', GridCells, queue_size = 10)
+
+        ## Path publisher
+        self.path_pub = rospy.Publisher('/path_planner/path_pub', Path, queue_size = 10)
         
         ## Initialize the request counter
         # TODO
@@ -391,13 +394,6 @@ class PathPlanner:
                         frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, next.x, next.y))
                         came_from[next] = current
 
-            ## Publish GridCells msg with current frontier
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells_list)
-            self.frontier_pub.publish(frontier_grid_cells)
-
             ## Publish GridCells msg with current expanded cells
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
@@ -405,12 +401,29 @@ class PathPlanner:
             expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells_list)
             self.expanded_pub.publish(expanded_grid_cells)
 
-            rospy.sleep(0.01)
+            ## Publish GridCells msg with current frontier
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells_list)
+            self.frontier_pub.publish(frontier_grid_cells)
 
+            rospy.sleep(0.05)
+
+        h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
     
+        path = []
+        while(True):
+            path.insert(0, current)
+            previous = came_from[current]
+            if (previous == None):
+                break
+            current = previous
+        return path
+
     @staticmethod
     def optimize_path(path):
         """
@@ -433,24 +446,26 @@ class PathPlanner:
         rospy.loginfo("Returning a Path message")
         pose_list = []
 
-        #setting up the header
+        for coord in path:
+            pose = Pose()
+            worldCoord = PathPlanner.grid_to_world(mapdata, coord.x, coord.y)
+            pose.position.x = worldCoord.x
+            pose.position.y = worldCoord.y
+            pose.position.z = worldCoord.z
+
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            pose_stamped = PoseStamped(h, pose)
+            pose_list.append(pose_stamped)
+
         h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
-        h.frame_id = "/odom"
+        h.frame_id = "/map"
+        path_msg = Path(h, pose_list)
+        self.path_pub.publish(path_msg)
 
-        #setting up poses
-        
-        pose = Pose()
-        pose.position.x = path[0]
-        pose.position.y = path[1]
-        pose.position.z = 0
-        pose.orientation.x
-        pose.orientation.y
-        pose.orientation.z = 0
-        pose_list.append(pose)
-
-        p = Path(h, pose_list)
-        return p
+        return path_msg
 
 
         
@@ -468,13 +483,13 @@ class PathPlanner:
         ## Calculate the C-space and publish it
         cspacedata = self.calc_cspace(mapdata, 1)
         ## Execute A*
-        start = PathPlanner.world_to_grid(mapdata, msg.start.pose.position)
-        goal  = PathPlanner.world_to_grid(mapdata, msg.goal.pose.position)
+        start = PathPlanner.world_to_grid(mapdata, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
+        goal  = PathPlanner.world_to_grid(mapdata, Coord(msg.goal.pose.position.x, msg.goal.pose.position.y))
         path  = self.a_star(cspacedata, start, goal)
         ## Optimize waypoints
-        waypoints = PathPlanner.optimize_path(path)
-        ## Return a Path message
-        return self.path_to_message(mapdata, waypoints)
+        # waypoints = PathPlanner.optimize_path(path)
+        ## Get Path message
+        path_msg = self.path_to_message(mapdata, path)
 
 
     
@@ -486,7 +501,10 @@ class PathPlanner:
         cspace = self.calc_cspace(map, 1)
         start = Coord(2,2)
         goal = Coord(34,34)
-        self.a_star(cspace, start, goal)
+        path = self.a_star(cspace, start, goal)
+        path_msg = self.path_to_message(map, path)
+        return path_msg
+
         rospy.spin()
 
 

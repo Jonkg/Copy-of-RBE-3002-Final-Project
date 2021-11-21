@@ -364,15 +364,14 @@ class PathPlanner:
         self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
 
         ## Lists to keep track of frontier, visited cells, and path
-        frontier_cells_list = []
-        expanded_cells_list = []
-        visited_indices = []
+        frontier_indices = []
+        expanded_indices = []
         path = []
 
         ## Initialize priority queue and add start cell to frontier
         frontier = PriorityQueue()
         frontier.put(start, 0)
-        frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, start.x, start.y))
+        frontier_indices.append(PathPlanner.grid_to_index(mapdata, start.x, start.y))
 
         ## "Came From" and "Cost" lists for A* Algorithm
         came_from = {}
@@ -383,8 +382,9 @@ class PathPlanner:
         ## Run A* Algorithm
         while not frontier.empty():
             current = frontier.get()
-            visited_indices.append(PathPlanner.grid_to_index(mapdata, current.x, current.y))
-            expanded_cells_list.append(PathPlanner.grid_to_world(mapdata, current.x, current.y))
+            curr_index = PathPlanner.grid_to_index(mapdata, current.x, current.y)
+            frontier_indices.remove(curr_index)
+            expanded_indices.append(curr_index)
 
             ## Finished when current cell is the goal
             if (current.x == goal.x and current.y == current.y):
@@ -405,41 +405,37 @@ class PathPlanner:
 
                     ## If cell already visited, skip
                     index = PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y)
-                    if (index not in visited_indices):
+                    if (index not in expanded_indices):
 
                         ## Add to frontier if previously undiscovered or cheaper
                         if (neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]):
                             cost_so_far[neighbor] = new_cost
                             priority = new_cost + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, goal.x, goal.y)
                             frontier.put(neighbor, priority)
-                            frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, neighbor.x, neighbor.y))
+                            frontier_indices.append(PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y))
                             came_from[neighbor] = current
 
             ## Publish GridCells msg with current frontier
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             h.frame_id = "/map"
-            frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells_list)
+            frontier_cells = []
+            for i in frontier_indices:
+                coord = PathPlanner.index_to_grid(mapdata, i)
+                frontier_cells.append(PathPlanner.grid_to_world(mapdata, coord.x, coord.y))
+            frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells)
             self.frontier_pub.publish(frontier_grid_cells)
 
-            # ## Publish GridCells msg with current expanded cells
-            # h = std_msgs.msg.Header()
-            # h.stamp = rospy.Time.now()
-            # h.frame_id = "/map"
-            # expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells_list)
-            # self.expanded_pub.publish(expanded_grid_cells)
-
-            # Publish GridCells msg with current expanded cells
+            ## Publish GridCells msg with expanded cells
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             h.frame_id = "/map"
-            expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, current.x, current.y)])
+            expanded_cells = []
+            for i in expanded_indices:
+                coord = PathPlanner.index_to_grid(mapdata, i)
+                expanded_cells.append(PathPlanner.grid_to_world(mapdata, coord.x, coord.y))
+            expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells)
             self.expanded_pub.publish(expanded_grid_cells)
-
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
         
         return path
 

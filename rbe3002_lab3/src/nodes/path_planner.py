@@ -178,8 +178,25 @@ class PathPlanner:
         :return        [[PoseStamped]] The path as a list of PoseStamped (world coordinates).
         """
         ### REQUIRED CREDIT
-        pass
+        pose_list = []
+        for pose in path:
+            #setup header
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/odom"
+            #setup pose
+            pose = Pose()
+            pose.position.x = path[0]
+            pose.position.y = path[1]
+            pose.position.z = 0
+            pose.orientation.x
+            pose.orientation.y
+            pose.orientation.z = 0
 
+            p = PoseStamped(h, pose)
+            pose_list.append(p)
+
+        return pose_list
     
 
     @staticmethod
@@ -414,6 +431,26 @@ class PathPlanner:
         """
         ### REQUIRED CREDIT
         rospy.loginfo("Returning a Path message")
+        pose_list = []
+
+        #setting up the header
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/odom"
+
+        #setting up poses
+        
+        pose = Pose()
+        pose.position.x = path[0]
+        pose.position.y = path[1]
+        pose.position.z = 0
+        pose.orientation.x
+        pose.orientation.y
+        pose.orientation.z = 0
+        pose_list.append(pose)
+
+        p = Path(h, pose_list)
+        return p
 
 
         

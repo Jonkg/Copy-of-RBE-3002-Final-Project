@@ -2,6 +2,7 @@
 
 import rospy
 import math
+import std_msgs.msg
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
@@ -10,7 +11,7 @@ from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
-class Lab2:
+class Lab3:
 
     # test plz work
 
@@ -31,16 +32,15 @@ class Lab2:
         ### When a message is received, call self.update_odometry
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
         ### Tell ROS that this node subscribes to PoseStamped messages on the '/move_base_simple/goal' topic
-        ### When a message is received, call self.go_to
-        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.go_to)
+        ### When a message is received, call self.request_path
+        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.request_path)
 
 
         rospy.sleep(1)
 
 
 
-    @staticmethod
-    def request_path():
+    def request_path(self, msg):
         """
         Requests the path from the map server.
         :return [OccupancyGrid] The grid if the service call was successful,
@@ -51,7 +51,26 @@ class Lab2:
         rospy.wait_for_service('plan_path')
         try: 
             get_plan = rospy.ServiceProxy('plan_path', GetPlan)
-            resp = get_plan()
+            req = GetPlan()
+
+            start_pose = Pose()
+            start_pose.position.x = self.px
+            start_pose.position.y = self.py
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            start_pose_stamped = PoseStamped(h, start_pose)
+
+            goal_pose = msg.pose
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            goal_pose_stamped = PoseStamped(h, goal_pose)
+
+            req.start = start_pose_stamped
+            req.goal = goal_pose_stamped
+            req.tolerance = 0
+            resp = get_plan(req.start, req.goal, req.tolerance)
             rospy.loginfo("Got path succesfully")
             return resp
         except rospy.ServiceException as e:
@@ -201,9 +220,5 @@ class Lab2:
         rospy.spin()
 
 if __name__ == '__main__':
-    #Lab2().drive(1.0, 0.5)
-    #Lab2().rotate((math.pi/2), 1.0)
-    #rospy.sleep(2)
-    #Lab2().rotate(-(math.pi/2), 1.0)
-    Lab2().run()
+    Lab3().run()
 

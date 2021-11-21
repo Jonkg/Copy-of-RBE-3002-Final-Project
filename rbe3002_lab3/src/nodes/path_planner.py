@@ -40,9 +40,9 @@ class PathPlanner:
         
         ## Create publishers for A* (expanded cells, frontier, ...)
         ## Choose the topic names, the message type is GridCells
-        expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
-        fronteir_pub = rospy.Publisher('/path_planner/fronteir', GridCells, queue_size = 10)
-        unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10)
+        self.expanded_pub = rospy.Publisher('/path_planner/expanded', GridCells, queue_size = 10)
+        self.frontier_pub = rospy.Publisher('/path_planner/frontier', GridCells, queue_size = 10)
+        self.unexplored_pub = rospy.Publisher('/apath_planner/unexplored', GridCells, queue_size = 10)
         
         ## Initialize the request counter
         # TODO

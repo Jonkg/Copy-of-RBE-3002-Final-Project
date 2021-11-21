@@ -169,7 +169,7 @@ class PathPlanner:
         #change the wp.x and wp.y to what they actually will be later on
         gridCoordx = int((wp.x - mapdata.info.origin.position.x) / mapdata.info.resolution)
         gridCoordy = int((wp.y - mapdata.info.origin.position.y) / mapdata.info.resolution)
-        return (gridCoordx, gridCoordy)
+        return Coord(gridCoordx, gridCoordy)
 
         
     @staticmethod
@@ -363,43 +363,57 @@ class PathPlanner:
         h.frame_id = "/map"
         self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
 
+        ## Lists to keep track of frontier, visited cells, and path
         frontier_cells_list = []
         expanded_cells_list = []
+        visited_indices = []
+        path = []
 
+        ## Initialize priority queue and add start cell to frontier
         frontier = PriorityQueue()
         frontier.put(start, 0)
         frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, start.x, start.y))
 
+        ## "Came From" and "Cost" lists for A* Algorithm
         came_from = {}
         cost_so_far = {}
         came_from[start] = None
         cost_so_far[start] = 0
 
+        ## Run A* Algorithm
         while not frontier.empty():
             current = frontier.get()
+            visited_indices.append(PathPlanner.grid_to_index(mapdata, current.x, current.y))
             expanded_cells_list.append(PathPlanner.grid_to_world(mapdata, current.x, current.y))
 
+            ## Finished when current cell is the goal
             if (current.x == goal.x and current.y == current.y):
+                while(True):
+                    path.insert(0, current)
+                    previous = came_from[current]
+                    if (previous == None):
+                        break
+                    current = previous
                 break
 
-            for next in PathPlanner.neighbors_of_8(mapdata, current.x, current.y):
-                index = PathPlanner.grid_to_index(mapdata, next.x, next.y)
+            ## Evaluate neihgbors of current cell
+            for neighbor in PathPlanner.neighbors_of_8(mapdata, current.x, current.y):
 
-                if (mapdata.data[index] == 0):
-                    new_cost = cost_so_far[current] + mapdata.info.resolution
-                    if (next not in cost_so_far or new_cost < cost_so_far[next]):
-                        cost_so_far[next] = new_cost
-                        priority = new_cost + PathPlanner.euclidean_distance(next.x, next.y, goal.x, goal.y)
-                        frontier.put(next, priority)
-                        frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, next.x, next.y))
-                        came_from[next] = current
+                ## Check if neighbors are navigable
+                if (PathPlanner.is_cell_walkable(mapdata, neighbor.x, neighbor.y)):
+                    new_cost = cost_so_far[current] + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, current.x, current.y)
 
-            ## Publish GridCells msg with current expanded cells
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells_list)
-            self.expanded_pub.publish(expanded_grid_cells)
+                    ## If cell already visited, skip
+                    index = PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y)
+                    if (index not in visited_indices):
+
+                        ## Add to frontier if previously undiscovered or cheaper
+                        if (neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]):
+                            cost_so_far[neighbor] = new_cost
+                            priority = new_cost + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, goal.x, goal.y)
+                            frontier.put(neighbor, priority)
+                            frontier_cells_list.append(PathPlanner.grid_to_world(mapdata, neighbor.x, neighbor.y))
+                            came_from[neighbor] = current
 
             ## Publish GridCells msg with current frontier
             h = std_msgs.msg.Header()
@@ -408,20 +422,25 @@ class PathPlanner:
             frontier_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, frontier_cells_list)
             self.frontier_pub.publish(frontier_grid_cells)
 
-            rospy.sleep(0.05)
+            # ## Publish GridCells msg with current expanded cells
+            # h = std_msgs.msg.Header()
+            # h.stamp = rospy.Time.now()
+            # h.frame_id = "/map"
+            # expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells_list)
+            # self.expanded_pub.publish(expanded_grid_cells)
+
+            # Publish GridCells msg with current expanded cells
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, current.x, current.y)])
+            self.expanded_pub.publish(expanded_grid_cells)
 
         h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         self.goal_pub.publish(GridCells(h, mapdata.info.resolution, mapdata.info.resolution, [PathPlanner.grid_to_world(mapdata, goal.x, goal.y)]))
-    
-        path = []
-        while(True):
-            path.insert(0, current)
-            previous = came_from[current]
-            if (previous == None):
-                break
-            current = previous
+        
         return path
 
     @staticmethod
@@ -477,19 +496,19 @@ class PathPlanner:
         """
         ## Request the map
         ## In case of error, return an empty path
-        mapdata = PathPlanner.request_map()
-        if mapdata is None:
+        map = PathPlanner.request_map()
+        if map is None:
             return Path()
         ## Calculate the C-space and publish it
-        cspacedata = self.calc_cspace(mapdata, 1)
+        cspacedata = self.calc_cspace(map, 1)
         ## Execute A*
-        start = PathPlanner.world_to_grid(mapdata, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
-        goal  = PathPlanner.world_to_grid(mapdata, Coord(msg.goal.pose.position.x, msg.goal.pose.position.y))
+        start = PathPlanner.world_to_grid(map, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
+        goal  = PathPlanner.world_to_grid(map, Coord(msg.goal.pose.position.x, msg.goal.pose.position.y))
         path  = self.a_star(cspacedata, start, goal)
         ## Optimize waypoints
         # waypoints = PathPlanner.optimize_path(path)
         ## Get Path message
-        path_msg = self.path_to_message(mapdata, path)
+        path_msg = self.path_to_message(map, path)
 
 
     
@@ -497,14 +516,6 @@ class PathPlanner:
         """
         Runs the node until Ctrl-C is pressed.
         """
-        map = PathPlanner.request_map()
-        cspace = self.calc_cspace(map, 1)
-        start = Coord(2,2)
-        goal = Coord(34,34)
-        path = self.a_star(cspace, start, goal)
-        path_msg = self.path_to_message(map, path)
-        return path_msg
-
         rospy.spin()
 
 

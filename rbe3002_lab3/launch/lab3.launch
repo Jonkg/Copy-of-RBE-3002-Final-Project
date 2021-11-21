@@ -5,4 +5,5 @@
 	<include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch" />
 	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find rbe3002_lab3)/rviz/rbe3002_lab3.rviz" />
 	<node name="path_planner" pkg="rbe3002_lab3" type="path_planner.py" />
+	<node name="lab3" pkg="rbe3002_lab3" type="lab3.py" />
 </launch>

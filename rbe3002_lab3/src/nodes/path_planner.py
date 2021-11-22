@@ -396,7 +396,7 @@ class PathPlanner:
                     current = previous
                 break
 
-            ## Evaluate neihgbors of current cell
+            ## Evaluate neighbors of current cell
             for neighbor in PathPlanner.neighbors_of_8(mapdata, current.x, current.y):
 
                 ## Check if neighbors are navigable
@@ -449,6 +449,35 @@ class PathPlanner:
         ### EXTRA CREDIT
         rospy.loginfo("Optimizing path")
 
+        ## Create
+        optimal_path = []
+
+        ## return input path is less than 3 points
+        if (len(path) < 3):
+            return path
+
+        ## Add first point to optimal path
+        optimal_path.append(path[0])
+        prev = path[0]
+        curr = path[1]
+
+        ## Add direction change points to path
+        for i in range(2,len(path)):
+            next = path[i]
+            prev_delta = Coord(curr.x-prev.x, curr.y-prev.y)
+            next_delta = Coord(next.x-curr.x, next.y-curr.y)
+            if ((prev_delta.x != next_delta.x) or (prev_delta.y != next_delta.y)):
+                optimal_path.append(curr)
+            prev = curr
+            curr = next
+
+        ## Add last point to path
+        optimal_path.append(next)
+
+        ## Return path
+        rospy.loginfo(optimal_path)
+        return optimal_path
+
         
 
     def path_to_message(self, mapdata, path):
@@ -494,14 +523,20 @@ class PathPlanner:
         map = PathPlanner.request_map()
         if map is None:
             return Path()
+
         ## Calculate the C-space and publish it
         cspacedata = self.calc_cspace(map, 1)
+
         ## Execute A*
         start = PathPlanner.world_to_grid(map, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
         goal  = PathPlanner.world_to_grid(map, Coord(msg.goal.pose.position.x, msg.goal.pose.position.y))
         path  = self.a_star(cspacedata, start, goal)
+
+        ## Optimize path
+        waypoints = PathPlanner.optimize_path(path)
+
         ## Get Path message
-        path_msg = self.path_to_message(map, path)
+        path_msg = self.path_to_message(map, waypoints)
         self.path_pub.publish(path_msg)
         return path_msg
 

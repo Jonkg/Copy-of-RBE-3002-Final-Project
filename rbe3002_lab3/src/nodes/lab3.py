@@ -13,8 +13,6 @@ from geometry_msgs.msg import Point, Pose, PoseStamped
 
 class Lab3:
 
-    # test plz work
-
     def __init__(self):
         """
         Class constructor
@@ -33,8 +31,7 @@ class Lab3:
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
         ### Tell ROS that this node subscribes to PoseStamped messages on the '/move_base_simple/goal' topic
         ### When a message is received, call self.request_path
-        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.request_path)
-
+        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.nav_to_point)
 
         rospy.sleep(1)
 
@@ -42,39 +39,39 @@ class Lab3:
 
     def request_path(self, msg):
         """
-        Requests the path from the map server.
-        :return [OccupancyGrid] The grid if the service call was successful,
+        Requests the path from path_planner
+        :return [Path] The grid if the service call was successful,
                                 None in case of error.
         """
         ### REQUIRED CREDIT
         rospy.loginfo("Requesting the path")
         rospy.wait_for_service('plan_path')
-        try: 
-            get_plan = rospy.ServiceProxy('plan_path', GetPlan)
-            req = GetPlan()
+        # try: 
+        get_plan = rospy.ServiceProxy('plan_path', GetPlan)
+        req = GetPlan()
 
-            start_pose = Pose()
-            start_pose.position.x = self.px
-            start_pose.position.y = self.py
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            start_pose_stamped = PoseStamped(h, start_pose)
+        start_pose = Pose()
+        start_pose.position.x = self.px
+        start_pose.position.y = self.py
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        start_pose_stamped = PoseStamped(h, start_pose)
 
-            goal_pose = msg.pose
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            goal_pose_stamped = PoseStamped(h, goal_pose)
+        goal_pose = msg.pose
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        goal_pose_stamped = PoseStamped(h, goal_pose)
 
-            req.start = start_pose_stamped
-            req.goal = goal_pose_stamped
-            req.tolerance = 0
-            resp = get_plan(req.start, req.goal, req.tolerance)
-            rospy.loginfo("Got path succesfully")
-            return resp
-        except rospy.ServiceException as e:
-            rospy.loginfo("Service call failed: %s"%e)
+        req.start = start_pose_stamped
+        req.goal = goal_pose_stamped
+        req.tolerance = 0
+        resp = get_plan(req.start, req.goal, req.tolerance)
+        rospy.loginfo("Got path succesfully")
+        return resp.plan.poses
+        # except rospy.ServiceException as e:
+        #     rospy.loginfo("Service call failed: %s"%e)
 
 
     def send_speed(self, linear_speed, angular_speed):
@@ -126,6 +123,7 @@ class Lab3:
         self.send_speed(0, 0)
 
 
+
     def boundAngle(self, angle):
         if(angle > 0):
             while (angle > math.pi):
@@ -159,17 +157,36 @@ class Lab3:
 
 
 
-    def go_to(self, msg):
+    def nav_to_point(self, msg):
+        """
+        Navigates the robot to the specified point
+        :param msg [PoseStamped] from rviz
+        """
+        path = self.request_path(msg)
+        for pose in path:
+            self.go_to(pose.pose.position.x, pose.pose.position.y)
+        self.final_heading(pose.pose)
+
+
+
+    def final_heading(self, pose):
+        poseAngle = pose.orientation
+        quaternion_angles = [poseAngle.x, poseAngle.y, poseAngle.z, poseAngle.w]
+        (roll, pitch, yaw) = euler_from_quaternion(quaternion_angles)
+
+        targetAngle = self.boundAngle(yaw - self.pth)
+
+        self.rotate(targetAngle, 0.5)
+
+
+
+    def go_to(self, targetX, targetY):
         """
         Calls rotate(), drive(), and rotate() to attain a given pose.
         This method is a callback bound to a Subscriber.
         :param msg [PoseStamped] The target pose.
         """
         ### REQUIRED CREDIT
-
-        # rotate to look at the target location
-        targetX = msg.pose.position.x
-        targetY = msg.pose.position.y
 
         deltaX = targetX - self.px
         deltaY = targetY - self.py
@@ -189,16 +206,6 @@ class Lab3:
             lookAngle = math.atan2(deltaY, deltaX)
             lookAngleError = lookAngle - self.pth
             rospy.sleep(0.05)
-
-        #rotate to the final angle needed for the final pose
-        poseAngle = msg.pose.orientation
-        quaternion_angles = [poseAngle.x, poseAngle.y, poseAngle.z, poseAngle.w]
-        (roll, pitch, yaw) = euler_from_quaternion(quaternion_angles)
-
-        targetAngle = self.boundAngle(yaw - self.pth)
-
-        self.rotate(targetAngle, 0.5)
-
 
 
 

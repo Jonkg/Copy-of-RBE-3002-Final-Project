@@ -478,7 +478,6 @@ class PathPlanner:
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         path_msg = Path(h, pose_list)
-        self.path_pub.publish(path_msg)
 
         return path_msg
 
@@ -501,10 +500,10 @@ class PathPlanner:
         start = PathPlanner.world_to_grid(map, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
         goal  = PathPlanner.world_to_grid(map, Coord(msg.goal.pose.position.x, msg.goal.pose.position.y))
         path  = self.a_star(cspacedata, start, goal)
-        ## Optimize waypoints
-        # waypoints = PathPlanner.optimize_path(path)
         ## Get Path message
         path_msg = self.path_to_message(map, path)
+        self.path_pub.publish(path_msg)
+        return path_msg
 
 
     

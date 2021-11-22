@@ -151,8 +151,11 @@ class Lab3:
         tolerance = 0.05
 
         while (abs(targetAngle - self.pth) > tolerance):
-             self.send_speed(0, aspeed)
-             rospy.sleep(0.05)
+            if (abs(targetAngle - self.pth) > 0.5):
+                self.send_speed(0, aspeed)
+            else:
+                self.send_speed(0, aspeed/2)
+            rospy.sleep(0.05)
         self.send_speed(0, 0)
 
 
@@ -176,7 +179,7 @@ class Lab3:
 
         targetAngle = self.boundAngle(yaw - self.pth)
 
-        self.rotate(targetAngle, 0.5)
+        self.rotate(targetAngle, 1.0)
 
 
 
@@ -196,16 +199,20 @@ class Lab3:
         self.rotate(lookAngleError, 0.5)
 
         # travel to the target distance
-        targetDistance = math.sqrt(deltaX**2 + deltaY**2)
-        tolerance = 0.1
-        kp = 5
+        initialTargetDistance = math.sqrt(deltaX**2 + deltaY**2)
+        targetDistance = initialTargetDistance
+        tolerance = 0.05
+        kp = 10
 
         while (targetDistance > tolerance):
-            self.send_speed(0.25, lookAngleError*kp)
+            if (targetDistance < 0.5 or (initialTargetDistance - targetDistance) < 0.5):
+                self.send_speed(0.1, lookAngleError*kp)
+            else:
+                self.send_speed(0.3, lookAngleError*kp)
             targetDistance = math.sqrt((targetX - self.px)**2 + (targetY - self.py)**2)
             lookAngle = math.atan2(deltaY, deltaX)
             lookAngleError = lookAngle - self.pth
-            rospy.sleep(0.05)
+            rospy.sleep(0.01)
 
 
 

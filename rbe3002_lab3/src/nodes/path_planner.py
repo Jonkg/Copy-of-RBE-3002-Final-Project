@@ -376,21 +376,24 @@ class PathPlanner:
         ## "Came From" and "Cost" lists for A* Algorithm
         came_from = {}
         cost_so_far = {}
-        came_from[start] = None
-        cost_so_far[start] = 0
+
+        start_index = PathPlanner.grid_to_index(mapdata, start.x, start.y)
+        cost_so_far[start_index] = 0
+        came_from[start_index] = None
 
         ## Run A* Algorithm
         while not frontier.empty():
+
             current = frontier.get()
             curr_index = PathPlanner.grid_to_index(mapdata, current.x, current.y)
             frontier_indices.remove(curr_index)
             expanded_indices.append(curr_index)
 
             ## Finished when current cell is the goal
-            if (current.x == goal.x and current.y == current.y):
+            if (current.x == goal.x and current.y == goal.y):
                 while(True):
                     path.insert(0, current)
-                    previous = came_from[current]
+                    previous = came_from[PathPlanner.grid_to_index(mapdata, current.x, current.y)]
                     if (previous == None):
                         break
                     current = previous
@@ -398,22 +401,21 @@ class PathPlanner:
 
             ## Evaluate neighbors of current cell
             for neighbor in PathPlanner.neighbors_of_8(mapdata, current.x, current.y):
+                neighbor_index = PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y)
 
                 ## Check if neighbors are navigable
                 if (PathPlanner.is_cell_walkable(mapdata, neighbor.x, neighbor.y)):
-                    new_cost = cost_so_far[current] + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, current.x, current.y)
+                    new_cost = cost_so_far[curr_index] + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, current.x, current.y)
 
-                    ## If cell already visited, skip
-                    index = PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y)
-                    if (index not in expanded_indices):
+                    ## Add to frontier if previously undiscovered or cheaper
+                    if (neighbor_index not in cost_so_far or new_cost < cost_so_far[neighbor_index]):
+                        cost_so_far[neighbor_index] = new_cost
 
-                        ## Add to frontier if previously undiscovered or cheaper
-                        if (neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]):
-                            cost_so_far[neighbor] = new_cost
-                            priority = new_cost + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, goal.x, goal.y)
-                            frontier.put(neighbor, priority)
-                            frontier_indices.append(PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y))
-                            came_from[neighbor] = current
+                        priority = new_cost + PathPlanner.euclidean_distance(neighbor.x, neighbor.y, goal.x, goal.y)
+
+                        frontier.put(neighbor, priority)
+                        frontier_indices.append(PathPlanner.grid_to_index(mapdata, neighbor.x, neighbor.y))
+                        came_from[neighbor_index] = current
 
             ## Publish GridCells msg with current frontier
             h = std_msgs.msg.Header()

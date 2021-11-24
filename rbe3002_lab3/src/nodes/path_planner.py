@@ -8,17 +8,16 @@ from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
-global map
 
 
-
+## Coord class for storing (x,y) coord objects
 class Coord:
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
 
-
+## Priority queue implemntation provided for use
 class PriorityQueue:
 
     def __init__(self):
@@ -109,6 +108,7 @@ class PathPlanner:
         :return  [int] The index.
         """
         ### REQUIRED CREDIT
+        ## Convert (x,y) coord to index
         index = y * mapdata.info.width + x
         return index
 
@@ -118,10 +118,10 @@ class PathPlanner:
         """
         Returns the grid coordinate corresponding to the given index
         """
+        ## Convert index to (x,y) coord
         x = index % mapdata.info.width
         y = (index - x) / mapdata.info.width
-        return Coord(x,y)
-        
+        return Coord(x,y)        
 
 
 
@@ -136,6 +136,7 @@ class PathPlanner:
         :return   [float]        The distance.
         """
         ### REQUIRED CREDIT
+        ## USe distance formula to calcualte straight line distance between cells
         distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         return distance
         
@@ -151,6 +152,7 @@ class PathPlanner:
         :return        [Point]         The position in the world.
         """
         ### REQUIRED CREDIT
+        ## Convert grid coords to world coords
         worldCoordx = (x + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.x
         worldCoordy = (y + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.y
         return(Point(worldCoordx, worldCoordy, 0))
@@ -166,7 +168,7 @@ class PathPlanner:
         :return        [(int,int)]     The cell position as a tuple.
         """
         ### REQUIRED CREDIT
-        #change the wp.x and wp.y to what they actually will be later on
+        ## Convert world coords to grid coords
         gridCoordx = int((wp.x - mapdata.info.origin.position.x) / mapdata.info.resolution)
         gridCoordy = int((wp.y - mapdata.info.origin.position.y) / mapdata.info.resolution)
         return Coord(gridCoordx, gridCoordy)
@@ -214,13 +216,17 @@ class PathPlanner:
         :return        [boolean]       True if the cell is walkable, False otherwise
         """
         ### REQUIRED CREDIT
+        ## Check if cell falls within bounds of map
         if (x < mapdata.info.width and x >= 0 and y < mapdata.info.height and y >= 0):
             index = PathPlanner.grid_to_index(mapdata, x, y)
             value = mapdata.data[index]
+            ## Return true if cell is within map and not an obstacle
             if (value == 0):
                 return True
+            ## Return false if obstacle
             else:
                 return False
+        ## Return false if outside bounds of map
         else:
             return False
 
@@ -286,6 +292,7 @@ class PathPlanner:
                                 None in case of error.
         """
         ### REQUIRED CREDIT
+        ## Call 'static_map' service from map server
         rospy.loginfo("Requesting the map")
         rospy.wait_for_service('static_map')
         try: 
@@ -313,26 +320,35 @@ class PathPlanner:
         cspace_data = []
         added_cells = []
 
+        ## Create new mapdata for c-space
         curr_occ_gri = mapdata
 
+        ## Add 1 layer of padding per loop iteration
         while (padding > 0):
+            ## Iterate through every cell in the map
             for cell_index in range(len(curr_occ_gri.data)):
+                ## Consider if each free cell should become an obstacle
                 if (curr_occ_gri.data[cell_index] == 0):
                     coord = PathPlanner.index_to_grid(curr_occ_gri, cell_index)
                     neighbors = PathPlanner.neighbors_of_8(curr_occ_gri, coord.x, coord.y)
+                    ## Check if any neighbors are obstacles
                     adjacentToObstacle = False
                     for neighbor in neighbors:
                         neighbor_index = PathPlanner.grid_to_index(curr_occ_gri, neighbor.x, neighbor.y)
                         if (curr_occ_gri.data[neighbor_index] != 0):
                             adjacentToObstacle = True
+                    ## If any neighbors are obsactles, make cell an obstacle in new mapdata
                     if (adjacentToObstacle):
                         cspace_data.append(100)
                         added_cells.append(PathPlanner.grid_to_world(curr_occ_gri, coord.x, coord.y))
+                    ## Otherwise, keep the cell free in new mapdata
                     else:
                         cspace_data.append(0)
+                ## If already obstacle, mark as obstacle in new mapdata
                 else:
                     cspace_data.append(100)  
             padding = padding - 1
+            ## Create new occupancy grid from new mapdata for c-sapce
             curr_occ_gri = OccupancyGrid(mapdata.header, mapdata.info, cspace_data)
 
         ## Create a GridCells message and publish it
@@ -377,6 +393,7 @@ class PathPlanner:
         came_from = {}
         cost_so_far = {}
 
+        ## Add start node to "Came From" and "Cost"
         start_index = PathPlanner.grid_to_index(mapdata, start.x, start.y)
         cost_so_far[start_index] = 0
         came_from[start_index] = None
@@ -384,6 +401,7 @@ class PathPlanner:
         ## Run A* Algorithm
         while not frontier.empty():
 
+            ## Get lowest cost node, compute index, update lists
             current = frontier.get()
             curr_index = PathPlanner.grid_to_index(mapdata, current.x, current.y)
             frontier_indices.remove(curr_index)
@@ -392,6 +410,7 @@ class PathPlanner:
             ## Finished when current cell is the goal
             if (current.x == goal.x and current.y == goal.y):
                 while(True):
+                    ## Work backward to generate path
                     path.insert(0, current)
                     previous = came_from[PathPlanner.grid_to_index(mapdata, current.x, current.y)]
                     if (previous == None):
@@ -439,6 +458,7 @@ class PathPlanner:
             expanded_grid_cells = GridCells(h, mapdata.info.resolution, mapdata.info.resolution, expanded_cells)
             self.expanded_pub.publish(expanded_grid_cells)
         
+        ## Return calcualted path
         return path
 
     @staticmethod
@@ -492,24 +512,30 @@ class PathPlanner:
         rospy.loginfo("Returning a Path message")
         pose_list = []
 
+        ## Convert (x, y) coords to PoseStmaped in world coordiantes
         for coord in path:
+
+            ## Convert (x, y) coord to Point in world cordinates
             pose = Pose()
             worldCoord = PathPlanner.grid_to_world(mapdata, coord.x, coord.y)
             pose.position.x = worldCoord.x
             pose.position.y = worldCoord.y
             pose.position.z = worldCoord.z
 
+            ## Created PoseStamped from Point
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             h.frame_id = "/map"
             pose_stamped = PoseStamped(h, pose)
             pose_list.append(pose_stamped)
 
+        ## Construct Path message
         h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         path_msg = Path(h, pose_list)
 
+        ## Return Path message
         return path_msg
 
 

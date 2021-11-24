@@ -44,34 +44,43 @@ class Lab3:
                                 None in case of error.
         """
         ### REQUIRED CREDIT
+        ## Call 'plan_path" servie for path_planner node
         rospy.loginfo("Requesting the path")
         rospy.wait_for_service('plan_path')
-        # try: 
-        get_plan = rospy.ServiceProxy('plan_path', GetPlan)
-        req = GetPlan()
 
-        start_pose = Pose()
-        start_pose.position.x = self.px
-        start_pose.position.y = self.py
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        start_pose_stamped = PoseStamped(h, start_pose)
+        try: 
+            ## Service handler
+            get_plan = rospy.ServiceProxy('plan_path', GetPlan)          
+            req = GetPlan()
 
-        goal_pose = msg.pose
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        goal_pose_stamped = PoseStamped(h, goal_pose)
+            ## Construct PoseStamped msg for start pose
+            start_pose = Pose()
+            start_pose.position.x = self.px
+            start_pose.position.y = self.py
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            start_pose_stamped = PoseStamped(h, start_pose)
 
-        req.start = start_pose_stamped
-        req.goal = goal_pose_stamped
-        req.tolerance = 0
-        resp = get_plan(req.start, req.goal, req.tolerance)
-        rospy.loginfo("Got path succesfully")
-        return resp.plan.poses
-        # except rospy.ServiceException as e:
-        #     rospy.loginfo("Service call failed: %s"%e)
+            ## Construct PoseStamped msg for goal pose
+            goal_pose = msg.pose
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            goal_pose_stamped = PoseStamped(h, goal_pose)
+
+            ## Construct GetPlan msg for request
+            req.start = start_pose_stamped
+            req.goal = goal_pose_stamped
+            req.tolerance = 0
+
+            ## Return response from 'plan_path' service call
+            resp = get_plan(req.start, req.goal, req.tolerance)
+            rospy.loginfo("Got path succesfully")
+            return resp.plan.poses
+
+        except rospy.ServiceException as e:
+             rospy.loginfo("Service call failed: %s"%e)
 
 
     def send_speed(self, linear_speed, angular_speed):
@@ -105,25 +114,30 @@ class Lab3:
         """
         ### REQUIRED CREDIT
 
+        ## Get initial position
         initialX = self.px
         initialY = self.py
 
+        ## Set goal position
         targetXRoboFrame = distance
         currentXRoboFrame = 0
 
+        ## Set constants
         tolerance = 0.05
         kp = 8
 
+        ## Drive straight until within tolerance of target distance
         while (abs(targetXRoboFrame - currentXRoboFrame) > tolerance):
             currentXRoboFrame = math.cos(self.pth)*(self.px-initialX) + math.sin(self.pth)*(self.py-initialY)
             currentYRoboFrame = -math.sin(self.pth)*(self.px-initialX) + math.cos(self.pth)*(self.py-initialY)
             self.send_speed(linear_speed, currentYRoboFrame*kp)
             rospy.sleep(0.05)
 
+        ## Stop
         self.send_speed(0, 0)
 
 
-
+    ## Adjust angle to equivalent between -pi nad pi
     def boundAngle(self, angle):
         if(angle > 0):
             while (angle > math.pi):
@@ -145,33 +159,39 @@ class Lab3:
         initialAngle = self.pth
         targetAngle = self.boundAngle(initialAngle + angle)
 
+        ## Change turn direction for negative angles
         if (angle < 0):
             aspeed = -aspeed
 
         tolerance = 0.05
 
+        ## Turn towards target angle until within tolerance
         while (abs(targetAngle - self.pth) > tolerance):
             if (abs(targetAngle - self.pth) > 0.5):
                 self.send_speed(0, aspeed)
             else:
                 self.send_speed(0, aspeed/2)
             rospy.sleep(0.05)
+
+        ## Stop
         self.send_speed(0, 0)
 
 
-
+    ## Navigate to a goal 
     def nav_to_point(self, msg):
         """
         Navigates the robot to the specified point
-        :param msg [PoseStamped] from rviz
+        :param msg [Path] from 'plan_path' service
         """
         path = self.request_path(msg)
+        ## Drive to each wapoint along path in sequence
         for pose in path:
             self.go_to(pose.pose.position.x, pose.pose.position.y)
+        ## Turn to face final heading
         self.final_heading(pose.pose)
 
 
-
+    ## Turn to face the heading given in a Pose message
     def final_heading(self, pose):
         poseAngle = pose.orientation
         quaternion_angles = [poseAngle.x, poseAngle.y, poseAngle.z, poseAngle.w]
@@ -194,16 +214,18 @@ class Lab3:
         deltaX = targetX - self.px
         deltaY = targetY - self.py
 
+        ## Turn to face target position
         lookAngle = math.atan2(deltaY, deltaX)
         lookAngleError = self.boundAngle(lookAngle - self.pth)
         self.rotate(lookAngleError, 0.5)
 
-        # travel to the target distance
+        ## travel distance to the target position
         initialTargetDistance = math.sqrt(deltaX**2 + deltaY**2)
         targetDistance = initialTargetDistance
         tolerance = 0.05
         kp = 10
 
+        ## Keep driving nad adjsuting heading until within toelrance of target position
         while (targetDistance > tolerance):
             if (targetDistance < 0.5 or (initialTargetDistance - targetDistance) < 0.5):
                 self.send_speed(0.1, lookAngleError*kp)
@@ -222,6 +244,7 @@ class Lab3:
         This method is a callback bound to a Subscriber.
         :param msg [Odometry] The current odometry information.
         """
+        ## Update robot position and heading from odometry messages
         self.px = msg.pose.pose.position.x
         self.py = msg.pose.pose.position.y
         quat_orig = msg.pose.pose.orientation

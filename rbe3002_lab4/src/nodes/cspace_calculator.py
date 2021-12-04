@@ -2,15 +2,10 @@
 
 import rospy
 import std_msgs.msg
+from coord import Coord
+from lab4_util import Lab4Util
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
-
-
-
-class Coord:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
 
 
 
@@ -34,75 +29,6 @@ class CspaceCalculator:
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1.0)
         rospy.loginfo("C-space calculator node ready")
-
-
-
-    @staticmethod
-    def grid_to_index(mapdata, x, y):
-        """
-        Returns the index corresponding to the given (x,y) coordinates in the occupancy grid.
-        :param x [int] The cell X coordinate.
-        :param y [int] The cell Y coordinate.
-        :return  [int] The index.
-        """
-        ### REQUIRED CREDIT
-        index = y * mapdata.info.width + x
-        return index
-
-
-    
-    @staticmethod
-    def index_to_grid(mapdata, index):
-        """
-        Returns the grid coordinate corresponding to the given index
-        """
-        x = index % mapdata.info.width
-        y = (index - x) / mapdata.info.width
-        return Coord(x,y)
-
-
-
-    @staticmethod
-    def grid_to_world(mapdata, x, y):
-        """
-        Transforms a cell coordinate in the occupancy grid into a world coordinate.
-        :param mapdata [OccupancyGrid] The map information.
-        :param x       [int]           The cell X coordinate.
-        :param y       [int]           The cell Y coordinate.
-        :return        [Point]         The position in the world.
-        """
-        ### REQUIRED CREDIT
-        worldCoordx = (x + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.x
-        worldCoordy = (y + 0.5) * mapdata.info.resolution + mapdata.info.origin.position.y
-        return(Point(worldCoordx, worldCoordy, 0))
-
-
-
-    @staticmethod
-    def neighbors_of_8(mapdata, x, y):
-        """
-        Returns the walkable 8-neighbors cells of (x,y) in the occupancy grid.
-        :param mapdata [OccupancyGrid] The map information.
-        :param x       [int]           The X coordinate in the grid.
-        :param y       [int]           The Y coordinate in the grid.
-        :return        [[(int,int)]]   A list of walkable 8-neighbors.
-        """
-        ### REQUIRED CREDIT
-        index = CspaceCalculator.grid_to_index(mapdata, x, y)
-
-        # Get index of the 8 adjacent cells
-        neighbors = []
-        neighbors.append(Coord(x-1,y))      # left
-        neighbors.append(Coord(x+1,y))      # right
-        neighbors.append(Coord(x,y-1))      # up
-        neighbors.append(Coord(x,y+1))      # down
-        neighbors.append(Coord(x-1,y-1))    # up, left
-        neighbors.append(Coord(x+1,y-1))    # up, right
-        neighbors.append(Coord(x-1,y+1))    # down, left
-        neighbors.append(Coord(x+1,y+1))    # down, right
-
-        # return list of coordinates of 8 neighbors
-        return neighbors
 
     
 
@@ -131,18 +57,18 @@ class CspaceCalculator:
             for cell_index in range(len(curr_occ_gri.data)):
                 ## Consider if each free cell should become an obstacle
                 if (curr_occ_gri.data[cell_index] == 0):
-                    coord = CspaceCalculator.index_to_grid(curr_occ_gri, cell_index)
-                    neighbors = CspaceCalculator.neighbors_of_8(curr_occ_gri, coord.x, coord.y)
+                    coord = Lab4Util.index_to_grid(curr_occ_gri, cell_index)
+                    neighbors = Lab4Util.neighbors_of_8(curr_occ_gri, coord.x, coord.y)
                     ## Check if any neighbors are obstacles
                     adjacentToObstacle = False
                     for neighbor in neighbors:
-                        neighbor_index = CspaceCalculator.grid_to_index(curr_occ_gri, neighbor.x, neighbor.y)
+                        neighbor_index = Lab4Util.grid_to_index(curr_occ_gri, neighbor.x, neighbor.y)
                         if (curr_occ_gri.data[neighbor_index] != 0):
                             adjacentToObstacle = True
                     ## If any neighbors are obsactles, make cell an obstacle in new mapdata
                     if (adjacentToObstacle):
                         cspace_data.append(100)
-                        added_cells.append(CspaceCalculator.grid_to_world(curr_occ_gri, coord.x, coord.y))
+                        added_cells.append(Lab4Util.grid_to_world(curr_occ_gri, coord.x, coord.y))
                     ## Otherwise, keep the cell free in new mapdata
                     else:
                         cspace_data.append(0)

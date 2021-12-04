@@ -102,7 +102,7 @@ class FrontierExplorer:
 
 
 
-    def identifyFrontier(self, mapdata):
+    def identifyFrontiers(self, mapdata):
         """
         Identifies the frontier
         :param mapdata [OccupancyGrid] The map data
@@ -117,8 +117,9 @@ class FrontierExplorer:
         #                   add cell to that frontier
         #               else
         #                   create new frontier
+        #                   mainlist.append([cell])
         #  main_list[fronter1, frontier2, ...]
-        #  mainlist.append([cell])
+        #  
 
         frontier_cell_indices = self.getFrontierCellIndices(mapdata)
         frontier_list = []
@@ -140,7 +141,9 @@ class FrontierExplorer:
                         if occ_grid[neighbor_index] in frontier:
                             frontier_list.append(cell_index)
                         else:
-                            
+                            main_list.append([cell_index])
+        
+        return main_list
 
 
 
@@ -150,6 +153,7 @@ class FrontierExplorer:
         #   calc_centroid
         #   calc_value
         #   add to priority queue
+        
 
         pass
 

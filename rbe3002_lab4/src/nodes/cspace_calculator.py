@@ -41,43 +41,53 @@ class CspaceCalculator:
         :return        [OccupancyGrid] The C-Space.
         """
         rospy.loginfo("Calculating C-Space")
-        padding = 6
+        padding = 2
 
         ## Go through each cell in the occupancy grid
         ## Inflate the obstacles where necessary
-        cspace_data = []
+        obstacle_cell_indices = []
+        added_cell_indices = []
         added_cells = []
 
         ## Create new mapdata for c-space
-        curr_occ_gri = mapdata
+        curr_occ_grid = mapdata
+        cspace_data = []
 
-        ## Add 1 layer of padding per loop iteration
-        while (padding > 0):
-            ## Iterate through every cell in the map
-            for cell_index in range(len(curr_occ_gri.data)):
-                ## Consider if each free cell should become an obstacle
-                if (curr_occ_gri.data[cell_index] == 0):
-                    coord = Lab4Util.index_to_grid(curr_occ_gri, cell_index)
-                    neighbors = Lab4Util.neighbors_of_8(curr_occ_gri, coord.x, coord.y)
-                    ## Check if any neighbors are obstacles
-                    adjacentToObstacle = False
-                    for neighbor in neighbors:
-                        neighbor_index = Lab4Util.grid_to_index(curr_occ_gri, neighbor.x, neighbor.y)
-                        if (curr_occ_gri.data[neighbor_index] != 0):
-                            adjacentToObstacle = True
-                    ## If any neighbors are obsactles, make cell an obstacle in new mapdata
-                    if (adjacentToObstacle):
-                        cspace_data.append(100)
-                        added_cells.append(Lab4Util.grid_to_world(curr_occ_gri, coord.x, coord.y))
-                    ## Otherwise, keep the cell free in new mapdata
-                    else:
-                        cspace_data.append(0)
-                ## If already obstacle, mark as obstacle in new mapdata
-                else:
-                    cspace_data.append(100)  
+        ## Iterate through mapdata and get list of obstacles cell indices
+        ## Consider each cell
+        for index in range(len(curr_occ_grid.data)):
+            ## Add to list if obstacle
+            if (curr_occ_grid.data[index] >= 50):
+                obstacle_cell_indices.append(index)
+                cspace_data.append(100)
+            else:
+                cspace_data.append(0)
+
+        while padding > 0:   
+            ## Iterate through list of obstacle cells and list cells to add
+            for cell_index in obstacle_cell_indices:
+                coord = Lab4Util.index_to_grid(curr_occ_grid, cell_index)
+                ## Get neighboring cells
+                neighbors = Lab4Util.neighbors_of_8(curr_occ_grid, coord.x, coord.y)
+                for neighbor in neighbors:
+                    neighbor_index = Lab4Util.grid_to_index(curr_occ_grid, neighbor.x, neighbor.y)
+                    ## Add free neighbors to added cells
+                    if (curr_occ_grid.data[neighbor_index] == 0):
+                        added_cell_indices.append(neighbor_index)
+            ## Update obstacle cells
+            for index in added_cell_indices:
+                if index not in obstacle_cell_indices:
+                    obstacle_cell_indices.append(index)
+                    cspace_data[index] = 100
+            ## Decrease padding value
             padding = padding - 1
-            ## Create new occupancy grid from new mapdata for c-sapce
-            curr_occ_gri = OccupancyGrid(mapdata.header, mapdata.info, cspace_data)
+            ## Create new Occupancy Grid
+            curr_occ_grid = OccupancyGrid(mapdata.header, mapdata.info, cspace_data)
+
+        ## Add C-space cells to list
+        for index in added_cell_indices:
+            coord = Lab4Util.index_to_grid(curr_occ_grid, index)
+            added_cells.append(Lab4Util.grid_to_world(curr_occ_grid, coord.x, coord.y))
 
         ## Create a GridCells message and publish it
         h = std_msgs.msg.Header()
@@ -92,7 +102,7 @@ class CspaceCalculator:
         h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
-        c_space = OccupancyGrid(h, mapdata.info, cspace_data)
+        c_space = OccupancyGrid(h, mapdata.info, curr_occ_grid.data)
         return c_space
 
 

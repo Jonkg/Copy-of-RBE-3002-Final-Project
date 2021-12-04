@@ -32,7 +32,30 @@ class FrontierExplorer:
 
 
 
+    def dilate_frontiers(self, mapdata, padding):
+        """
+        Refines the frontiers
+        :param mapdata [OccupancyGrid]  The map data
+        :param padding [int]            Number of cells to expand by
+        :return        [[int]]          A refined list of frontier cell indices.
+        """
+        
+        return
+
+    def erode_frontiers(self, mapdata, padding):
+        """
+        Refines the frontiers
+        :param mapdata [OccupancyGrid]  The map data
+        :param padding [int]            Number of cells to shrink by
+        :return        [[int]]          A refined list of frontier cell indices.
+        """
+
+        return
+
+      
+ 
     def getFrontierCellIndices(self, mapdata):
+
         """
         Gets frontier cell indices from the given map data
         :param mapdata [OccupancyGrid] The map data
@@ -61,13 +84,22 @@ class FrontierExplorer:
         return frontier_cell_indices
 
 
-    def refineFrontier():
-        # expand frontier_cells
-        # shrink frontier_cells
+    def refineFrontier(self, mapdata):
+        """
+        Refines the frontiers
+        :param mapdata [OccupancyGrid]  The map data
+        :return        [[int]]          A refined list of frontier cell indices.
+        """
 
-        #expand and shrink are separate functions
+        ## Expand frontiers
+        dilatedFrontier = FrontierExplorer.dilate_frontiers(mapdata)
 
-        pass
+        ## Shrink frontiers
+        refinedFrontier = FrontierExplorer.erode_frontiers(dilatedFrontier)
+
+        ## Return refined frontier
+        return refinedFrontier
+
 
 
     def identifyFrontier(self, mapdata):

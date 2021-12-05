@@ -21,36 +21,96 @@ class FrontierExplorer:
         rospy.init_node("frontier_explorer")
 
         ## Subscribe to map topic
-        rospy.Subscriber('/map', OccupancyGrid, self.something)
+        rospy.Subscriber('/map', OccupancyGrid, self.publishFrontier)
         
-        ## Create C-space publisher
-        self.cspace_pub = rospy.Publisher('/frontier', GridCells, queue_size = 10)
+        ## Frontier Publisher
+        self.frontier_pub = rospy.Publisher('/frontier', GridCells, queue_size = 10)
 
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1.0)
-        rospy.loginfo("C-space calculator node ready")
+        rospy.loginfo("Frontier explorer node ready")
 
 
 
-    def dilate_frontiers(self, mapdata, padding):
+    def publishFrontier(self, mapdata):
+        rospy.loginfo("Calculating C-Space")
+        frontier_cell_indices = self.getFrontierCellIndices(mapdata)
+
+        ## Create list of frontier world cells
+        frontier_cells = []
+        for index in frontier_cell_indices:
+            coord = Lab4Util.index_to_grid(mapdata, index)
+            frontier_cells.append(Lab4Util.grid_to_world(mapdata, coord.x, coord.y))
+
+        ## Create a GridCells message and publish it
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        cell_width = mapdata.info.resolution
+        cell_height = mapdata.info.resolution
+        frontier_gridCells = GridCells(h, cell_width, cell_height, frontier_cells)
+        self.cfrontier_pub.publish(frontier_gridCells)
+
+
+    def dilateFrontiers(self, mapdata, frontier_list, padding):
         """
         Refines the frontiers
         :param mapdata [OccupancyGrid]  The map data
         :param padding [int]            Number of cells to expand by
         :return        [[int]]          A refined list of frontier cell indices.
         """
-        
-        return
+        ## Add layer(s) of cells to frontier
+        added_cell_indices = []
 
-    def erode_frontiers(self, mapdata, padding):
+        while padding > 0:   
+            ## Iterate through list of frontier cells and add walkable neighbors to a new list
+            for index in frontier_list:
+                coord = Lab4Util.index_to_grid(mapdata, index)
+                ## Get neighboring cells
+                neighbors = Lab4Util.neighbors_of_8(mapdata, coord.x, coord.y)
+                for neighbor in neighbors:
+                    neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
+                    ## Add free neighbors to added cells list
+                    if (neighbor_index not in frontier_list and mapdata.data[neighbor_index] == 0):
+                        added_cell_indices.append(neighbor_index)
+            ## Update frontier list
+            for index in added_cell_indices:
+                frontier_list.append(index)
+            ## Decrease padding value
+            padding = padding - 1
+
+        return frontier_list
+
+
+
+    def erodeFrontiers(self, mapdata, frontier_list, padding):
         """
         Refines the frontiers
         :param mapdata [OccupancyGrid]  The map data
         :param padding [int]            Number of cells to shrink by
         :return        [[int]]          A refined list of frontier cell indices.
         """
+        ## Add layer(s) of cells to frontier
+        reduced_frontier_indices = []
 
-        return
+        while padding > 0:   
+            ## Iterate through list of frontier cells and add interior cells to new list
+            for index in frontier_list:
+                coord = Lab4Util.index_to_grid(mapdata, index)
+                ## Get neighboring cells
+                neighbors = Lab4Util.neighbors_of_8(mapdata, coord.x, coord.y)
+                isInterior = True
+                for neighbor in neighbors:
+                    neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
+                    ## Set isInterior false if any neighbors are not in frontier
+                    if (neighbor_index not in frontier_list):
+                        reduced_frontier_indices.append(neighbor_index)
+            ## Update frontier list
+            frontier_list = reduced_frontier_indices
+            ## Decrease padding value
+            padding = padding - 1
+
+        return frontier_list
 
       
  
@@ -84,7 +144,7 @@ class FrontierExplorer:
         return frontier_cell_indices
 
 
-    def refineFrontier(self, mapdata):
+    def refineFrontier(self, mapdata, frontier_list):
         """
         Refines the frontiers
         :param mapdata [OccupancyGrid]  The map data
@@ -92,10 +152,10 @@ class FrontierExplorer:
         """
 
         ## Expand frontiers
-        dilatedFrontier = FrontierExplorer.dilate_frontiers(mapdata)
+        dilatedFrontier = FrontierExplorer.dilateFrontiers(mapdata, frontier_list, 2)
 
         ## Shrink frontiers
-        refinedFrontier = FrontierExplorer.erode_frontiers(dilatedFrontier)
+        refinedFrontier = FrontierExplorer.erodeFrontiers(mapdata, dilatedFrontier, 2)
 
         ## Return refined frontier
         return refinedFrontier

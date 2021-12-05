@@ -35,6 +35,7 @@ class FrontierExplorer:
     def publishFrontier(self, mapdata):
         rospy.loginfo("Calculating C-Space")
         frontier_cell_indices = self.getFrontierCellIndices(mapdata)
+        #refined_frontier_cell_indices = self.refineFrontier(mapdata, frontier_cell_indices, 2)
 
         ## Create list of frontier world cells
         frontier_cells = []
@@ -49,7 +50,7 @@ class FrontierExplorer:
         cell_width = mapdata.info.resolution
         cell_height = mapdata.info.resolution
         frontier_gridCells = GridCells(h, cell_width, cell_height, frontier_cells)
-        self.cfrontier_pub.publish(frontier_gridCells)
+        self.frontier_pub.publish(frontier_gridCells)
 
 
     def dilateFrontiers(self, mapdata, frontier_list, padding):
@@ -104,7 +105,9 @@ class FrontierExplorer:
                     neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
                     ## Set isInterior false if any neighbors are not in frontier
                     if (neighbor_index not in frontier_list):
-                        reduced_frontier_indices.append(neighbor_index)
+                        isInterior = False
+                if isInterior:
+                    reduced_frontier_indices.append(neighbor_index)
             ## Update frontier list
             frontier_list = reduced_frontier_indices
             ## Decrease padding value
@@ -130,21 +133,23 @@ class FrontierExplorer:
 
         frontier_cell_indices = []
 
-        occ_grid = mapdata
-
-        for cell_index in range(len(occ_grid)):
-            if(occ_grid[cell_index] == 0):
-                coord = Lab4Util.index_to_grid(occ_grid, cell_index)
-                neighbors = Lab4Util.neighbors_of_8(occ_grid, coord.x, coord.y)
+        for cell_index in range(len(mapdata.data)):
+            if(mapdata.data[cell_index] == 0):
+                coord = Lab4Util.index_to_grid(mapdata, cell_index)
+                neighbors = Lab4Util.neighbors_of_8(mapdata, coord.x, coord.y)
+                isBorder = False
                 for neighbor in neighbors:
-                    neighbor_index = Lab4Util.grid_to_index(occ_grid, neighbor.x, neighbor.y)
-                    if(occ_grid[neighbor_index] == -1):
-                        frontier_cell_indices.append(cell_index)
+                    neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
+                    if(mapdata.data[neighbor_index] == -1):
+                        isBorder = True
+                if isBorder:
+                    frontier_cell_indices.append(cell_index)
 
         return frontier_cell_indices
 
 
-    def refineFrontier(self, mapdata, frontier_list):
+
+    def refineFrontier(self, mapdata, frontier_list, padding):
         """
         Refines the frontiers
         :param mapdata [OccupancyGrid]  The map data
@@ -152,10 +157,10 @@ class FrontierExplorer:
         """
 
         ## Expand frontiers
-        dilatedFrontier = FrontierExplorer.dilateFrontiers(mapdata, frontier_list, 2)
+        dilatedFrontier = self.dilateFrontiers(mapdata, frontier_list, padding)
 
         ## Shrink frontiers
-        refinedFrontier = FrontierExplorer.erodeFrontiers(mapdata, dilatedFrontier, 2)
+        refinedFrontier = self.erodeFrontiers(mapdata, dilatedFrontier, padding)
 
         ## Return refined frontier
         return refinedFrontier

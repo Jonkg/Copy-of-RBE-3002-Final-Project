@@ -27,6 +27,7 @@ class FrontierExplorer:
         
         ## Frontier Publisher
         self.frontier_pub = rospy.Publisher('/frontier', GridCells, queue_size = 10)
+        self.frontier_centroid_pub = rospy.Publisher('/frontier_centroids', GridCells, queue_size = 10)
 
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1.0)
@@ -35,9 +36,15 @@ class FrontierExplorer:
 
 
     def publishFrontier(self, mapdata):
-        rospy.loginfo("Calculating C-Space")
+        rospy.loginfo("Publishing frontier")
         frontier_cell_indices = self.getFrontierCellIndices(mapdata)
-        #refined_frontier_cell_indices = self.refineFrontier(mapdata, frontier_cell_indices, 2)
+        #refined_frontier_cell_indices = self.refineFrontier(mapdata, frontier_cell_indices, 1)
+
+        ## Identify frontiers
+        frontiers = self.identifyFrontiers(mapdata, frontier_cell_indices)
+        frontier_centroids = []
+        for frontier in frontiers:
+            frontier_centroids.append(self.calc_centroid(mapdata, frontier))
 
         ## Create list of frontier world cells
         frontier_cells = []
@@ -53,6 +60,20 @@ class FrontierExplorer:
         cell_height = mapdata.info.resolution
         frontier_gridCells = GridCells(h, cell_width, cell_height, frontier_cells)
         self.frontier_pub.publish(frontier_gridCells)
+
+        ## Create list of frontier 
+        frontier_centroid_cells = []
+        for centroid in frontier_centroids:
+            frontier_centroid_cells.append(Lab4Util.grid_to_world(mapdata, centroid.x, centroid.y))
+
+        ## Create a GridCells message and publish it
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        cell_width = mapdata.info.resolution*3
+        cell_height = mapdata.info.resolution*3
+        centroid_gridCells = GridCells(h, cell_width, cell_height, frontier_centroid_cells)
+        self.frontier_centroid_pub.publish(centroid_gridCells)
 
 
     def dilateFrontiers(self, mapdata, frontier_list, padding):
@@ -169,48 +190,91 @@ class FrontierExplorer:
 
 
 
-    def identifyFrontiers(self, mapdata):
+    def identifyFrontiers(self, mapdata, frontier_cell_indices):
         """
         Identifies the frontier
         :param mapdata [OccupancyGrid] The map data
         :return        [[[int]]] A list of lists of frontier cell indices
         """
 
-        # for frontier cell:
-        #   neighbors_of_8
-        #       for frontier in frontier_list:
-        #           for cell in frontier:
-        #               if neighbor in a frontier:
-        #                   add cell to that frontier
-        #               else
-        #                   create new frontier
-        #                   mainlist.append([cell])
-        #  main_list[fronter1, frontier2, ...]
-        #  
+        ## Initialize structures
+        frontier_num = 1
+        frontDict = {}
+        dictKeyList = []
+        final_frontier_list = []
 
-        frontier_cell_indices = self.getFrontierCellIndices(mapdata)
-        frontier_list = []
-        main_list = []
-        occ_grid = mapdata
+        ## Iterate through all frontier cells:
+        for curr_index in frontier_cell_indices:
 
-        # for each frontier cell
-        for cell_index in frontier_cell_indices:
-            coord = Lab4Util.index_to_grid(occ_grid, cell_index)
-            # find the neighbors of 8
-            neighbors = Lab4Util.neighbors_of_8(occ_grid, coord.x, coord.y)
+            ## List for neighboring frontiers
+            neighbor_frontier_list = []
+
+            ## get neighbors of 8.
+            curr_coord = Lab4Util.index_to_grid(mapdata, curr_index)
+            neighbors = Lab4Util.neighbors_of_8(mapdata, curr_coord.x, curr_coord.y)
+
+            ## For each neighbor
             for neighbor in neighbors:
-                neighbor_index = Lab4Util.grid_to_index(occ_grid, neighbor.x, neighbor.y)
-                # for each frontier in the frontier list
-                for frontier in frontier_list:
-                    # for each cell in a frontier
-                    for occ_grid[cell_index] in frontier:
-                        # if the neighbor index is in that frontier
-                        if occ_grid[neighbor_index] in frontier:
-                            frontier_list.append(cell_index)
-                        else:
-                            main_list.append([cell_index])
-        
-        return main_list
+
+                ## Get neighbor index
+                neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
+
+                ## For key in key list:
+                for key in dictKeyList:
+
+                    ## For cell_index in dict[key]:
+                    for cell_index in frontDict[key]:
+
+                        ## if cell_index == neighbor_index:
+                        if cell_index == neighbor_index and key not in neighbor_frontier_list:
+
+                            ## add key to neighboring frontiers list
+                            neighbor_frontier_list.append(key)
+
+            ## if no neighboring frontiers (create new)
+            if len(neighbor_frontier_list) == 0:
+
+                ## create new frontier, add to key list, increment counter
+                frontDict[frontier_num] = [curr_index]
+                dictKeyList.append(frontier_num)
+                frontier_num = frontier_num + 1
+
+            ## if 1 neighboring frontier (join)
+            elif len(neighbor_frontier_list) == 1:
+
+                curr_list = frontDict[neighbor_frontier_list[0]]
+                (frontDict[neighbor_frontier_list[0]])
+                ## set dict[key] to list of previous list plus new cell index
+                rospy.loginfo(frontDict[neighbor_frontier_list[0]])
+                frontDict[neighbor_frontier_list[0]].append(curr_index)
+                rospy.loginfo(frontDict[neighbor_frontier_list[0]])
+
+            ## if 2+ neighboring frontiers (merge)
+            else:
+
+                ## create new list and add current cell index
+                new_frontier_list = []
+                new_frontier_list.append(curr_index)
+
+                ## Add all cell indices from neighboring frontiers, and take neighboring frontiers off list
+                rospy.loginfo(neighbor_frontier_list)
+                for key in neighbor_frontier_list:
+                    for cell_index in frontDict[key]:
+                        new_frontier_list.append(cell_index)
+                    dictKeyList.remove(key)
+                
+                ## create new frontier, add to key list, increment counter
+                frontDict[frontier_num] = new_frontier_list
+                dictKeyList.append(frontier_num)
+                frontier_num = frontier_num + 1
+
+        ## Create final list of frontiers
+        for key in dictKeyList:
+            if len(frontDict[key]) > 2:
+                final_frontier_list.append(frontDict[key])
+
+        ## return list of frontiers (lists of frontier cell indices)
+        return final_frontier_list
 
 
 
@@ -225,9 +289,16 @@ class FrontierExplorer:
         pass
 
 
-    def calc_centroid():
+    def calc_centroid(self, mapdata, cell_list):
+        x_sum = 0
+        y_sum = 0
+
+        for cell_index in cell_list:
+            curr = Lab4Util.index_to_grid(mapdata, cell_index)
+            x_sum = x_sum + curr.x
+            y_sum = y_sum + curr.y
         
-        pass
+        return Coord(x_sum/len(cell_list), y_sum/len(cell_list))
 
 
     def calc_value(self, mapdata, frontier):

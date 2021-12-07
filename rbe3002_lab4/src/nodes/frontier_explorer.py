@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import math
 from codecs import ignore_errors
+from types import _StaticFunctionType
 import rospy
 from rospy.core import add_shutdown_hook
 import std_msgs.msg
@@ -228,9 +230,48 @@ class FrontierExplorer:
         pass
 
 
-    def calc_value():
+    def calc_value(self, mapdata, frontier):
+        """
+        Calculates the value of a frontier, where the value is the weight of the frontier
+        :param mapdata [OccipancyGrid] The map data
+        :return         int  The value of the frontier
+        """
+
+        # length = calc_length(frontier)
+        # distance = euclidean distance from robot to centroid
+        # value = length/distance
+        # return value
+
+        length = self.calc_length(mapdata, frontier)
+        
+        
 
         pass
+
+
+    def calc_length(self, mapdata, frontier):
+        """
+        Calculates the length of the given frontier
+        :param mapdata [OccupancyGrid] The map data
+        :return         float  The length of the frontier
+        """
+
+        # For cell in frontier:
+        #   x_length =  x_length + cell's x coord
+        #   y_length = y_length + cell's y coord
+        # length_of_frontier = sqrt(x_length**2 + y_length**2)
+        # return length_of_fronter
+
+        #iterate through each cell in a frontier and get it's x and y length
+        for index in frontier:
+            coord = Lab4Util.index_to_grid(mapdata, index)
+            x_length = x_length + coord.x
+            y_length = y_length + coord.y
+        
+        # use trig to calculate the overall length of the frontier
+        length_of_frontier = math.sqrt((x_length**2 + y_length**2))
+        return length_of_frontier
+
 
 
 

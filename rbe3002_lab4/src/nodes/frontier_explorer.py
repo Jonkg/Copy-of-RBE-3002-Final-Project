@@ -2,7 +2,6 @@
 
 import math
 from codecs import ignore_errors
-from types import _StaticFunctionType
 import rospy
 from rospy.core import add_shutdown_hook
 import std_msgs.msg

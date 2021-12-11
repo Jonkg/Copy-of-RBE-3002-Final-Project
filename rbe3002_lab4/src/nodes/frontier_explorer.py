@@ -5,6 +5,7 @@ from codecs import ignore_errors
 import rospy
 from rospy.core import add_shutdown_hook
 import std_msgs.msg
+from priority_queue import PriorityQueue
 from coord import Coord
 from lab4_util import Lab4Util
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
@@ -146,20 +147,17 @@ class FrontierExplorer:
         :param mapdata [OccupancyGrid] The map data
         :return        [[int]] The list of indices of the frontier cells
         """
-        # for each cell:
-        #   if(cell = 0):
-        #       neighbors_of_8
-        #       for neightbors:
-        #           if(-1):
-        #               add cell to frontier_cells
 
         frontier_cell_indices = []
 
         for cell_index in range(len(mapdata.data)):
+            # get the neighbors of the coord in the current cell index
             if(mapdata.data[cell_index] == 0):
                 coord = Lab4Util.index_to_grid(mapdata, cell_index)
                 neighbors = Lab4Util.neighbors_of_8(mapdata, coord.x, coord.y)
                 isBorder = False
+
+                # for each neighbor, check if it is a border, and if so, append to the list
                 for neighbor in neighbors:
                     neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
                     if(mapdata.data[neighbor_index] == -1):
@@ -278,50 +276,78 @@ class FrontierExplorer:
 
 
 
-    def getBestFrontier(self, mapdata):
+    def getBestFrontier(self, mapdata, frontier_list):
         # for frontier in frontier_list
         #   calc_centroid
         #   calc_value
         #   add to priority queue
+
+        frontier_queue = PriorityQueue()
         
+        # for each frontier in the list, get its weight and put it in the frontier queue
+        for frontier in frontier_list:
+            weight = self.calc_value(mapdata, frontier)
+            frontier_queue.put(frontier, weight)
+        
+        # get and return the best frontier 
+        best_frontier = frontier_queue.get()
+        return best_frontier
 
-        pass
 
+    
+    #@staticmethod
+    def calc_value(self, pose, mapdata, frontier):
+        """
+        Calculates the value of a frontier, where the value is the weight of the frontier
+        :param mapdata [OccupancyGrid] The map data
+        :return         int  The value of the frontier
+        """
+        
+        length = self.calc_length(mapdata, frontier)
+        centroid = self.calc_centroid(mapdata, frontier)
+
+        # distance is the euclidean distance from the current robot position to the centroid
+        distance = Lab4Util.euclidean_distance(pose.x, pose.y, centroid.x, centroid.y)
+
+        # value is the length of the frontier divided by the distance 
+        value = length/distance
+
+        return value
 
 
     @staticmethod
     def calc_centroid(mapdata, cell_list):
+        """
+        Caclulates the centroid of the frontier and returns the point of the frontier closest to that centroid
+        :param mapdata [OccupancyGrid] The map data
+        :param cell_list [int] list of cells
+        return          [Coord] the coordinate of the closest frontier cell to centroid
+        """
         x_sum = 0
         y_sum = 0
 
+        # go through the frontier and add all the x's and y's to calc the centroid
         for cell_index in cell_list:
             curr = Lab4Util.index_to_grid(mapdata, cell_index)
             x_sum = x_sum + curr.x
             y_sum = y_sum + curr.y
         
-        return Coord(x_sum/len(cell_list), y_sum/len(cell_list))
+        centroid = Coord(x_sum/len(cell_list), y_sum/len(cell_list))
 
+        # get the first coordinate in the frontier and instantiate the closest distance
+        first_coord = Lab4Util.index_to_grid(mapdata, cell_list[0])
+        closest_distance = Lab4Util.euclidean_distance(centroid.x, centroid.y, first_coord.x, first_coord.y)
 
-
-    @staticmethod
-    def calc_value(mapdata, frontier):
-        """
-        Calculates the value of a frontier, where the value is the weight of the frontier
-        :param mapdata [OccipancyGrid] The map data
-        :return         int  The value of the frontier
-        """
-
-        # length = calc_length(frontier)
-        # distance = euclidean distance from robot to centroid
-        # value = length/distance
-        # return value
-
-        length = self.calc_length(mapdata, frontier)
+        for index in cell_list:
+            # get the current coordinate and calculate the distance
+            current = Lab4Util.index_to_grid(mapdata, index)
+            curr_distance = Lab4Util.euclidean_distance(centroid.x, centroid.y, current.x, current.y)
+            # if the current distance is less than the closest distance, set the current as the new closest distance 
+            if curr_distance < closest_distance:
+                closest_distance = curr_distance
         
-        
-
-        pass
-
+        # return the coordinate with the closest distance
+        return current
 
 
     @staticmethod
@@ -332,17 +358,37 @@ class FrontierExplorer:
         :param frontier [int]           List of cell indices in a frontier
         :return         float           The length of the frontier
         """
-
-        #iterate through each cell in a frontier and get it's x and y length
-        for index in frontier:
-            coord = Lab4Util.index_to_grid(mapdata, index)
-            x_length = x_length + coord.x
-            y_length = y_length + coord.y
+        # instantiate the max and mins of x and y from the first coordinate in the frontier
+        first_coord = Lab4Util.index_to_grid(mapdata, frontier[0])
+        max_x = first_coord.x
+        min_x = first_coord.x
+        max_y = first_coord.y
+        min_y = first_coord.y
         
-        # use trig to calculate the overall length of the frontier
-        length_of_frontier = math.sqrt((x_length**2 + y_length**2))
-        return length_of_frontier
+        for index in frontier:
+            # get the coordinate for the current index
+            current = Lab4Util.index_to_grid(mapdata, index)
+            
+            # if the current x coord is greater than the max x coord, set the current to the new max_x
+            # else, if the current x is less than the min x, set that to the new min x 
+            if current.x > max_x:
+                max_x = current.x
+            elif current.x < min_x:
+                min_x = current.x
 
+            # same thing as x, but for the y coord
+            if current.y > max_y:
+                max_y = current.y
+            elif current.y < min_y:
+                min_y = current.y
+        
+        # calculate the deltas by subtracting the max and min
+        delta_x = max_x - min_x
+        delta_y = max_y - min_y
+        
+        # calculate the length by doing trig
+        length = math.sqrt(delta_x**2 + delta_y**2)
+        return length
     
 
     @staticmethod

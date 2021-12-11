@@ -44,7 +44,7 @@ class FrontierExplorer:
         frontiers = self.identifyFrontiers(mapdata, frontier_cell_indices)
         frontier_centroids = []
         for frontier in frontiers:
-            frontier_centroids.append(self.calc_centroid(mapdata, frontier))
+            frontier_centroids.append(FrontierExplorer().calc_centroid(mapdata, frontier))
 
         ## Create list of frontier world cells
         frontier_cells = []
@@ -289,7 +289,9 @@ class FrontierExplorer:
         pass
 
 
-    def calc_centroid(self, mapdata, cell_list):
+
+    @staticmethod
+    def calc_centroid(mapdata, cell_list):
         x_sum = 0
         y_sum = 0
 
@@ -301,7 +303,9 @@ class FrontierExplorer:
         return Coord(x_sum/len(cell_list), y_sum/len(cell_list))
 
 
-    def calc_value(self, mapdata, frontier):
+
+    @staticmethod
+    def calc_value(mapdata, frontier):
         """
         Calculates the value of a frontier, where the value is the weight of the frontier
         :param mapdata [OccipancyGrid] The map data
@@ -320,18 +324,15 @@ class FrontierExplorer:
         pass
 
 
-    def calc_length(self, mapdata, frontier):
+
+    @staticmethod
+    def calc_length(mapdata, frontier):
         """
         Calculates the length of the given frontier
-        :param mapdata [OccupancyGrid] The map data
-        :return         float  The length of the frontier
+        :param mapdata  [OccupancyGrid] The map data
+        :param frontier [int]           List of cell indices in a frontier
+        :return         float           The length of the frontier
         """
-
-        # For cell in frontier:
-        #   x_length =  x_length + cell's x coord
-        #   y_length = y_length + cell's y coord
-        # length_of_frontier = sqrt(x_length**2 + y_length**2)
-        # return length_of_fronter
 
         #iterate through each cell in a frontier and get it's x and y length
         for index in frontier:
@@ -342,6 +343,19 @@ class FrontierExplorer:
         # use trig to calculate the overall length of the frontier
         length_of_frontier = math.sqrt((x_length**2 + y_length**2))
         return length_of_frontier
+
+    
+
+    @staticmethod
+    def calc_frontier_distance(mapdata, frontier):
+        """
+        Calculates the length of the given frontier
+        :param mapdata  [OccupancyGrid] The map data
+        :param frontier [int]           List of cell indices in a frontier
+        :return         float           The length of the frontier
+        """
+        centroid = FrontierExplorer().calc_centroid(mapdata, frontier)
+        frontier_distance = Lab4Util().euclidean_distance()
 
 
 

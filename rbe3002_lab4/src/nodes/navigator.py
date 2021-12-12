@@ -18,7 +18,7 @@ class Navigator:
         Class constructor
         """
         #name of the node
-        rospy.init_node("lab3")
+        rospy.init_node("navigator")
 
         self.px = 0
         self.py = 0
@@ -29,9 +29,6 @@ class Navigator:
         ### Tell ROS that this node subscribes to Odometry messages on the '/odom' topic
         ### When a message is received, call self.update_odometry
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
-        ### Tell ROS that this node subscribes to PoseStamped messages on the '/move_base_simple/goal' topic
-        ### When a message is received, call self.request_path
-        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.nav_to_point)
 
         rospy.sleep(1)
 

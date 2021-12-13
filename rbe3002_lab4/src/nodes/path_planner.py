@@ -5,7 +5,6 @@ import heapq
 import rospy
 import std_msgs.msg
 from coord import Coord
-from rbe3002_lab4.srv import getPose
 from priority_queue import PriorityQueue
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path

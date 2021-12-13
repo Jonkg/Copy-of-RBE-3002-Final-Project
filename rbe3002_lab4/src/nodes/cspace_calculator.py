@@ -5,6 +5,7 @@ import std_msgs.msg
 from coord import Coord
 from lab4_util import Lab4Util
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
+from nav_msgs.srv import GetPlan, GetMap
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
 
@@ -22,6 +23,9 @@ class CspaceCalculator:
 
         ## Subscribe to map topic
         rospy.Subscriber('/map', OccupancyGrid, self.calc_cspace)
+
+        ## Create a Cspace service (might have to change msg type)
+        s = rospy.Service('get_cspace', GridCells, self.get_cspace)
         
         ## Create C-space publisher
         self.cspace_pub = rospy.Publisher('/cspace', GridCells, queue_size = 10)
@@ -30,7 +34,43 @@ class CspaceCalculator:
         rospy.sleep(1.0)
         rospy.loginfo("C-space calculator node ready")
 
+
+    def get_cspace(self, msg):
+        """
+        Gets the cspace 
+        """
+
+        empty = msg
+
+        ## Request the map
+        ## In case of error, return an empty path
+        map = CspaceCalculator.request_map()
+        if map is None:
+            return Path()
+
+        c_space = self.calc_cspace(map)
+
+        return c_space
     
+
+    @staticmethod
+    def request_map():
+        """
+        Requests the map from the map server.
+        :return [OccupancyGrid] The grid if the service call was successful,
+                                None in case of error.
+        """
+        ### REQUIRED CREDIT
+        rospy.loginfo("Requesting the map")
+        rospy.wait_for_service('static_map')
+        try: 
+            get_map = rospy.ServiceProxy('static_map', GetMap)
+            resp = get_map()
+            rospy.loginfo("Got map succesfully")
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
+
 
     def calc_cspace(self, mapdata):
         """

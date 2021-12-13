@@ -8,8 +8,10 @@ import std_msgs.msg
 from priority_queue import PriorityQueue
 from coord import Coord
 from lab4_util import Lab4Util
+from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
+from std_srvs.srv._Empty import Empty
 
 
 
@@ -24,6 +26,13 @@ class FrontierExplorer:
 
         ## Subscribe to map topic
         rospy.Subscriber('/map', OccupancyGrid, self.publishFrontier)
+
+        ## Service call that accepts a posestamped message and call self.bestFrontier when 
+        ## message is recieved
+        s = rospy.Service('best_frontier', PoseStamped, self.bestFrontier)
+
+        ## Service call that calls 
+        s1 = rospy.Service('get_frontiers', Empty, self.getAllFrontiers)
         
         ## Frontier Publisher
         self.frontier_pub = rospy.Publisher('/frontier', GridCells, queue_size = 10)
@@ -74,6 +83,50 @@ class FrontierExplorer:
         cell_height = mapdata.info.resolution*3
         centroid_gridCells = GridCells(h, cell_width, cell_height, frontier_centroid_cells)
         self.frontier_centroid_pub.publish(centroid_gridCells)
+
+
+    def bestFrontier(self, msg):
+        """
+        Get the best frontier to go to
+        :param msg [PoseStamped] A posestamped message
+        :return     the centroid of the best frontier
+        """
+        ## Request the map
+        ## In case of error, return an empty path
+        map = FrontierExplorer.request_map()
+        if map is None:
+            return Path()
+        
+        goal_pose = msg.pose
+
+        #Get the list of frontiers
+        frontier_cell_indices = self.getFrontierCellIndices(map)
+        frontiers = self.identifyFrontiers(map, frontier_cell_indices)
+        
+        # get the best frontier to go to and return it
+        best_frontier = self.getBestFrontier(goal_pose, map, frontiers)
+        
+        centroid = self.calc_centroid(map, best_frontier)
+
+        return centroid
+
+
+    def getAllFrontiers(self, msg):
+        """
+        Gets a list of all the fronteirs
+        """
+
+        empty = msg
+
+        map = FrontierExplorer.request_map()
+        if map is None:
+            return Path()
+
+        frontier_cell_indices = self.getFrontierCellIndices(map)
+        frontiers = self.identifyFrontiers(map, frontier_cell_indices)
+
+        return frontiers
+
 
 
     def dilateFrontiers(self, mapdata, frontier_list, padding):
@@ -276,17 +329,17 @@ class FrontierExplorer:
 
 
 
-    def getBestFrontier(self, mapdata, frontier_list):
-        # for frontier in frontier_list
-        #   calc_centroid
-        #   calc_value
-        #   add to priority queue
+    def getBestFrontier(self, pose, mapdata, frontier_list):
+        """
+        Gets the best frontier from a list of frontiers and returns it
+        :param mapdata [OccupancyGrid] The map data
+        """
 
         frontier_queue = PriorityQueue()
         
         # for each frontier in the list, get its weight and put it in the frontier queue
         for frontier in frontier_list:
-            weight = self.calc_value(mapdata, frontier)
+            weight = self.calc_value(pose, mapdata, frontier)
             frontier_queue.put(frontier, weight)
         
         # get and return the best frontier 
@@ -313,6 +366,25 @@ class FrontierExplorer:
         value = length/distance
 
         return value
+
+    
+    @staticmethod
+    def request_map():
+        """
+        Requests the map from the map server.
+        :return [OccupancyGrid] The grid if the service call was successful,
+                                None in case of error.
+        """
+        ### REQUIRED CREDIT
+        rospy.loginfo("Requesting the map")
+        rospy.wait_for_service('static_map')
+        try: 
+            get_map = rospy.ServiceProxy('static_map', GetMap)
+            resp = get_map()
+            rospy.loginfo("Got map succesfully")
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
 
 
     @staticmethod

@@ -11,6 +11,7 @@ from state_machine import StateMachine
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
 from geometry_msgs.msg import Point, Pose, PoseStamped
+from std_srvs.srv._Empty import Empty
 
 
 
@@ -72,8 +73,13 @@ class Lab4:
         ## Explore unknown map and save map to file
 
         ## Get current pose from 'navigator' node
-        ## Get centroid of best frontier from 'frontier_explorer'
+        ## Get centroid of best frontier from 'frontier explorer'
+        #best_centroid = rospy.ServiceProxy('best_frontier', PoseStamped)
         ##      If frontiers to explore: Command 'navigator' node to drive to frontier centroid
+        #frontiers = rospy.ServiceProxy('get_frontiers', Empty)
+        
+
+
         ##      Else: Save the map (decide where/how to do this) and change state
 
         newState = "phase2"     ## THIS IS TEMPORARY

@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 
-import rospy
 import math
+import rospy
 import std_msgs.msg
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Point, Pose, PoseStamped, Twist
+from rbe3002_lab4.srv import getPose, getPoseResponse
+from nav_msgs.msg import GridCells, OccupancyGrid, Odometry, Path
+from nav_msgs.srv import GetMap, GetPlan
 from tf.transformations import euler_from_quaternion, projection_matrix
-from nav_msgs.srv import GetPlan, GetMap
-from nav_msgs.msg import GridCells, OccupancyGrid, Path
-from geometry_msgs.msg import Point, Pose, PoseStamped
 
 class Navigator:
 
@@ -30,8 +28,28 @@ class Navigator:
         ### When a message is received, call self.update_odometry
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
 
-        rospy.sleep(1)
+        ## Service to get current pose of the robot
+        get_pose_service = rospy.Service('get_pose', getPose, self.get_pose)
 
+        ## Service to navigate to a desired pose
+        go_to_pose_service = rospy.Service('go_to_pose', getPose, self.nav_to_pose)
+
+        rospy.sleep(1)
+    
+
+
+    def get_pose(self, msg):
+        resp = getPoseResponse()
+        resp.x = self.px
+        resp.y = self.px
+        resp.th = self.pth
+        return resp
+
+
+
+    def nav_to_pose(self, msg):
+        pass
+        
 
 
     def request_path(self, msg):
@@ -222,6 +240,7 @@ class Navigator:
         self.px = msg.pose.pose.position.x
         self.py = msg.pose.pose.position.y
         quat_orig = msg.pose.pose.orientation
+        self.quat = quat_orig
         quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
         (roll, pitch, yaw) = euler_from_quaternion(quat_list)
         self.pth = yaw

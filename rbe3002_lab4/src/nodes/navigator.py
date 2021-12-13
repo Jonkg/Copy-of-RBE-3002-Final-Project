@@ -4,7 +4,7 @@ import math
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point, Pose, PoseStamped, Twist
-from rbe3002_lab4.srv import getPose, getPoseResponse
+from rbe3002_lab4.srv import GetPose, GetPoseResponse, NavToPose, NavToPoseResponse
 from nav_msgs.msg import GridCells, OccupancyGrid, Odometry, Path
 from nav_msgs.srv import GetMap, GetPlan
 from tf.transformations import euler_from_quaternion, projection_matrix
@@ -29,17 +29,17 @@ class Navigator:
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
 
         ## Service to get current pose of the robot
-        get_pose_service = rospy.Service('get_pose', getPose, self.get_pose)
+        get_pose_service = rospy.Service('get_pose', GetPose, self.get_pose)
 
         ## Service to navigate to a desired pose
-        go_to_pose_service = rospy.Service('go_to_pose', getPose, self.nav_to_pose)
+        nav_to_pose_service = rospy.Service('nav_to_pose', NavToPose, self.nav_to_pose)
 
         rospy.sleep(1)
     
 
 
     def get_pose(self, msg):
-        resp = getPoseResponse()
+        resp = GetPoseResponse()
         resp.x = self.px
         resp.y = self.px
         resp.th = self.pth
@@ -48,7 +48,9 @@ class Navigator:
 
 
     def nav_to_pose(self, msg):
-        pass
+        resp = NavToPoseResponse()
+        resp.finished = True
+        return resp
         
 
 
@@ -58,35 +60,35 @@ class Navigator:
         :return [Path] The grid if the service call was successful,
                                 None in case of error.
         """
-        ### REQUIRED CREDIT
+    
         rospy.loginfo("Requesting the path")
         rospy.wait_for_service('plan_path')
-        # try: 
-        get_plan = rospy.ServiceProxy('plan_path', GetPlan)
-        req = GetPlan()
+        try: 
+            get_plan = rospy.ServiceProxy('plan_path', GetPlan)
+            req = GetPlan()
 
-        start_pose = Pose()
-        start_pose.position.x = self.px
-        start_pose.position.y = self.py
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        start_pose_stamped = PoseStamped(h, start_pose)
+            start_pose = Pose()
+            start_pose.position.x = self.px
+            start_pose.position.y = self.py
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            start_pose_stamped = PoseStamped(h, start_pose)
 
-        goal_pose = msg.pose
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        goal_pose_stamped = PoseStamped(h, goal_pose)
+            goal_pose = msg.pose
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            goal_pose_stamped = PoseStamped(h, goal_pose)
 
-        req.start = start_pose_stamped
-        req.goal = goal_pose_stamped
-        req.tolerance = 0
-        resp = get_plan(req.start, req.goal, req.tolerance)
-        rospy.loginfo("Got path succesfully")
-        return resp.plan.poses
-        # except rospy.ServiceException as e:
-        #     rospy.loginfo("Service call failed: %s"%e)
+            req.start = start_pose_stamped
+            req.goal = goal_pose_stamped
+            req.tolerance = 0
+            resp = get_plan(req.start, req.goal, req.tolerance)
+            rospy.loginfo("Got path succesfully")
+            return resp.plan.poses
+        except rospy.ServiceException as e:
+           rospy.loginfo("Service call failed: %s"%e)
 
 
     def send_speed(self, linear_speed, angular_speed):
@@ -178,7 +180,7 @@ class Navigator:
     def nav_to_point(self, msg):
         """
         Navigates the robot to the specified point
-        :param msg [PoseStamped] from rviz
+        :param msg [PoseStamped]
         """
         path = self.request_path(msg)
         for pose in path:
@@ -244,6 +246,7 @@ class Navigator:
         quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
         (roll, pitch, yaw) = euler_from_quaternion(quat_list)
         self.pth = yaw
+
 
 
     def run(self):

@@ -2,11 +2,12 @@
 
 import math
 import heapq
+from re import X
 import rospy
 import std_msgs.msg
 from KBHit import KBHit
 from coord import Coord
-from rbe3002_lab4.srv import getPose
+from rbe3002_lab4.srv import GetPose, NavToPose
 from state_machine import StateMachine
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
@@ -44,12 +45,24 @@ class Lab4:
 
     def get_curr_pose(self):
         rospy.wait_for_service('get_pose')
-        get_pose = rospy.ServiceProxy('get_pose', getPose)
+        get_pose = rospy.ServiceProxy('get_pose', GetPose)
         try:
             resp = get_pose()
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
+
+
+
+    def nav_to_pose(self, x, y, th):
+        rospy.wait_for_service('nav_to_pose')
+        nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
+        try:
+            resp = nav_to_pose(x, y, th)
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+        return resp
+
 
 
     def Idle(self):
@@ -103,7 +116,8 @@ class Lab4:
             ##      Else, set wheel speeds for go to pose and return false
 
         ## Change condition below to be the service call to navigator node
-        if(True):
+        if(self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)):
+            print("Arrived at destination!")
             newState = "phase3"
         else:
             newState = "phase2"

@@ -9,6 +9,8 @@ from nav_msgs.msg import GridCells, OccupancyGrid, Odometry, Path
 from nav_msgs.srv import GetMap, GetPlan
 from tf.transformations import euler_from_quaternion, projection_matrix
 
+
+
 class Navigator:
 
     def __init__(self):
@@ -53,6 +55,12 @@ class Navigator:
 
 
     def nav_to_pose(self, msg):
+        path = self.request_path(msg)
+        print(path)
+
+        for pose in path:
+            self.go_to(pose.pose.position.x, pose.pose.position.y)
+
         resp = NavToPoseResponse()
         resp.finished = True
         return resp
@@ -72,6 +80,8 @@ class Navigator:
             req = GetPlan()
 
             start_pose = Pose()
+            print(self.px)
+            print(self.py)
             start_pose.position.x = self.px
             start_pose.position.y = self.py
             h = std_msgs.msg.Header()
@@ -79,7 +89,11 @@ class Navigator:
             h.frame_id = "/map"
             start_pose_stamped = PoseStamped(h, start_pose)
 
-            goal_pose = msg.pose
+            goal_pose = Pose()
+            print(msg.x)
+            print(msg.y)
+            goal_pose.position.x = msg.x
+            goal_pose.position.y = msg.y
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             h.frame_id = "/map"
@@ -210,7 +224,6 @@ class Navigator:
         This method is a callback bound to a Subscriber.
         :param msg [PoseStamped] The target pose.
         """
-        ### REQUIRED CREDIT
 
         deltaX = targetX - self.px
         deltaY = targetY - self.py

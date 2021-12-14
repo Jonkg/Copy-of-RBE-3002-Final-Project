@@ -19,8 +19,6 @@ from std_srvs.srv._Empty import Empty
 
 class Lab4:
 
-
-
     def __init__(self):
         ## Initialize node
         rospy.init_node("lab4")
@@ -116,9 +114,8 @@ class Lab4:
         ##      If frontiers to explore: Command 'navigator' node to drive to frontier centroid
         if(best_centroid.exists):
             newState = "phase1"
-            # GO TO THE BEST CENTROID
-            print(best_centroid.x)
-            print(best_centroid.y)
+            print("Navigate to centroid", best_centroid.x, best_centroid.y)
+            self.nav_to_pose(best_centroid.x, best_centroid.y, 0)
         else:
             newState = "phase2"
             print("Finished generating map!")

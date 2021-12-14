@@ -77,6 +77,10 @@ class CspaceCalculator:
         :return        [OccupancyGrid] The C-Space.
         """
         rospy.loginfo("Calculating C-Space")
+
+        ## SIM
+        # padding = 3
+        ## ROBOT
         padding = 3
 
         ## Go through each cell in the occupancy grid

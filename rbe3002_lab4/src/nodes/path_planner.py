@@ -138,7 +138,15 @@ class PathPlanner:
 
                 ## Check if neighbors are navigable
                 if (Lab4Util.is_cell_walkable(mapdata, neighbor.x, neighbor.y)):
-                    new_cost = cost_so_far[curr_index] + Lab4Util.euclidean_distance(neighbor.x, neighbor.y, current.x, current.y)
+
+                    ## Double cost if bordering obstacle
+                    multiplier = 1
+                    for neighbors_neighbor in Lab4Util.neighbors_of_8(mapdata, neighbor.x, neighbor.y):
+                        neighbors_neighbor_index = Lab4Util.grid_to_index(mapdata, neighbors_neighbor.x, neighbors_neighbor.y)
+                        if (not Lab4Util.is_cell_walkable(mapdata, neighbors_neighbor.x, neighbors_neighbor.y)):
+                            multiplier = 2
+
+                    new_cost = cost_so_far[curr_index] + Lab4Util.euclidean_distance(neighbor.x, neighbor.y, current.x, current.y) * multiplier
 
                     ## Add to frontier if previously undiscovered or cheaper
                     if (neighbor_index not in cost_so_far or new_cost < cost_so_far[neighbor_index]):
@@ -267,7 +275,7 @@ class PathPlanner:
         path  = self.a_star(mapdata, start, goal)
 
         ## Optimize path
-        # waypoints = PathPlanner.optimize_path(path)
+        #waypoints = PathPlanner.optimize_path(path)
 
         ## Get Path message
         path_msg = self.path_to_message(mapdata, path)

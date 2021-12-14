@@ -4,7 +4,7 @@ import math
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point, Pose, PoseStamped, Twist
-from rbe3002_lab4.srv import GetPose, GetPoseResponse, NavToPose, NavToPoseResponse
+from rbe3002_lab4.srv import GetPose, GetPoseResponse, NavToPose, NavToPoseResponse, FollowPath, FollowPathResponse
 from nav_msgs.msg import GridCells, OccupancyGrid, Odometry, Path
 from nav_msgs.srv import GetMap, GetPlan
 from tf.transformations import euler_from_quaternion, projection_matrix
@@ -33,6 +33,9 @@ class Navigator:
         ## Service to get current pose of the robot
         get_pose_service = rospy.Service('get_pose', GetPose, self.get_pose)
 
+        ## Service to follow a given path
+        follow_path_service = rospy.Service('follow_path', FollowPath, self.follow_path)
+
         ## Service to navigate to a desired pose
         nav_to_pose_service = rospy.Service('nav_to_pose', NavToPose, self.nav_to_pose)
 
@@ -54,16 +57,24 @@ class Navigator:
 
 
 
-    def nav_to_pose(self, path_msg):
+    def follow_path(self, path_msg):
 
         path = path_msg.path.poses
 
-        resp = NavToPoseResponse()
+        resp = FollowPathResponse()
 
+        ### FOR WAYPOINTS ###
+        # self.go_to(path[1].pose.position.x, path[1].pose.position.y)
+        # self.go_to(path[2].pose.position.x, path[2].pose.position.y)
+
+        ### FOR NO WAYPOINTS ###
         if (len(path) > 4):
             self.go_to(path[3].pose.position.x, path[3].pose.position.y)
             self.go_to(path[4].pose.position.x, path[4].pose.position.y)
             self.go_to(path[5].pose.position.x, path[5].pose.position.y)
+            self.go_to(path[6].pose.position.x, path[6].pose.position.y)
+            self.go_to(path[7].pose.position.x, path[7].pose.position.y)
+            self.go_to(path[8].pose.position.x, path[8].pose.position.y)
         else:
             for pose in path:
                 self.go_to(pose.pose.position.x, pose.pose.position.y)
@@ -71,6 +82,66 @@ class Navigator:
         self.stop()
 
         return resp
+
+
+
+    def nav_to_pose(self, msg):
+        """
+        Navigates the robot to the specified point
+        :param msg [PoseStamped]
+        """
+        robotPose = self.getPose(0)
+
+        path = self.request_path(msg.x, msg.y, robotPose)
+
+        for pose in path:
+            self.go_to(pose.pose.position.x, pose.pose.position.y)
+
+        self.final_heading(pose.pose)
+
+        resp = NavToPoseResponse()
+        resp.reachedGoal = True
+
+        return resp
+
+
+
+    def request_path(self, goalX, goalY, robotPos):
+        """
+        Requests the path from path_planner
+        :return [Path] The grid if the service call was successful,
+                                None in case of error.
+        """
+    
+        rospy.loginfo("Requesting the path")
+        try: 
+            get_plan = rospy.ServiceProxy('plan_path', GetPlan)
+            req = GetPlan()
+
+            start_pose = Pose()
+            start_pose.position.x = robotPos.x
+            start_pose.position.y = robotPos.y
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            start_pose_stamped = PoseStamped(h, start_pose)
+
+            goal_pose = Pose()
+            goal_pose.position.x = goalX
+            goal_pose.position.y = goalY
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            goal_pose_stamped = PoseStamped(h, goal_pose)
+
+            req.start = start_pose_stamped
+            req.goal = goal_pose_stamped
+            req.tolerance = 0
+            resp = get_plan(req.start, req.goal, req.tolerance)
+            rospy.loginfo("Got path succesfully")
+            return resp.plan
+        except rospy.ServiceException as e:
+           rospy.loginfo("Service call failed: %s"%e)    
 
 
 
@@ -180,17 +251,6 @@ class Navigator:
                 self.send_speed(0, aspeed/2)
             rospy.sleep(0.05)
         self.send_speed(0, 0)
-
-
-
-    def nav_to_point(self, path):
-        """
-        Navigates the robot to the specified point
-        :param msg [PoseStamped]
-        """
-        for pose in path:
-            self.go_to(pose.pose.position.x, pose.pose.position.y)
-        self.final_heading(pose.pose)
 
 
 

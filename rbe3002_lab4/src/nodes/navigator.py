@@ -236,7 +236,7 @@ class Navigator:
         initialTargetDistance = math.sqrt(deltaX**2 + deltaY**2)
         targetDistance = initialTargetDistance
         tolerance = 0.05
-        kp = 10
+        kp = 0
 
         while (targetDistance > tolerance):
             if (targetDistance < 0.5 or (initialTargetDistance - targetDistance) < 0.5):

@@ -48,65 +48,52 @@ class Navigator:
     def get_pose(self, msg):
         resp = GetPoseResponse()
         resp.x = self.px
-        resp.y = self.px
+        resp.y = self.py
         resp.th = self.pth
         return resp
 
 
 
-    def nav_to_pose(self, msg):
-        path = self.request_path(msg)
-        print(path)
+    def nav_to_pose(self, path_msg):
 
-        for pose in path:
-            self.go_to(pose.pose.position.x, pose.pose.position.y)
+        path = path_msg.path.poses
 
         resp = NavToPoseResponse()
-        resp.finished = True
+
+        if (len(path) > 4):
+            self.go_to(path[3].pose.position.x, path[3].pose.position.y)
+            self.go_to(path[4].pose.position.x, path[4].pose.position.y)
+            self.go_to(path[5].pose.position.x, path[5].pose.position.y)
+        else:
+            for pose in path:
+                self.go_to(pose.pose.position.x, pose.pose.position.y)
+
+        self.stop()
+
         return resp
-        
 
 
-    def request_path(self, msg):
+
+    def stop(self):
         """
-        Requests the path from path_planner
-        :return [Path] The grid if the service call was successful,
-                                None in case of error.
+        Stop
         """
-    
-        rospy.loginfo("Requesting the path")
-        try: 
-            get_plan = rospy.ServiceProxy('plan_path', GetPlan)
-            req = GetPlan()
+        # Create twist message
+        msg_cmd_vel = Twist()
+        # Linear velocity
+        msg_cmd_vel.linear.x = 0.0
+        msg_cmd_vel.linear.y = 0.0
+        msg_cmd_vel.linear.z = 0.0
+        # Angular velocity
+        msg_cmd_vel.angular.x = 0.0
+        msg_cmd_vel.angular.y = 0.0
+        msg_cmd_vel.angular.z = 0.0
 
-            start_pose = Pose()
-            print(self.px)
-            print(self.py)
-            start_pose.position.x = self.px
-            start_pose.position.y = self.py
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            start_pose_stamped = PoseStamped(h, start_pose)
+        # Send command
+        self.cmd_vel.publish(msg_cmd_vel)
 
-            goal_pose = Pose()
-            print(msg.x)
-            print(msg.y)
-            goal_pose.position.x = msg.x
-            goal_pose.position.y = msg.y
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            h.frame_id = "/map"
-            goal_pose_stamped = PoseStamped(h, goal_pose)
+        return msg_cmd_vel
 
-            req.start = start_pose_stamped
-            req.goal = goal_pose_stamped
-            req.tolerance = 0
-            resp = get_plan(req.start, req.goal, req.tolerance)
-            rospy.loginfo("Got path succesfully")
-            return resp.plan.poses
-        except rospy.ServiceException as e:
-           rospy.loginfo("Service call failed: %s"%e)
 
 
     def send_speed(self, linear_speed, angular_speed):
@@ -132,6 +119,7 @@ class Navigator:
         return msg_cmd_vel
 
         
+
     def drive(self, distance, linear_speed):
         """
         Drives the robot in a straight line.
@@ -195,12 +183,11 @@ class Navigator:
 
 
 
-    def nav_to_point(self, msg):
+    def nav_to_point(self, path):
         """
         Navigates the robot to the specified point
         :param msg [PoseStamped]
         """
-        path = self.request_path(msg)
         for pose in path:
             self.go_to(pose.pose.position.x, pose.pose.position.y)
         self.final_heading(pose.pose)
@@ -230,13 +217,13 @@ class Navigator:
 
         lookAngle = math.atan2(deltaY, deltaX)
         lookAngleError = self.boundAngle(lookAngle - self.pth)
-        self.rotate(lookAngleError, 0.5)
+        self.rotate(lookAngleError, 1.0)
 
         # travel to the target distance
         initialTargetDistance = math.sqrt(deltaX**2 + deltaY**2)
         targetDistance = initialTargetDistance
         tolerance = 0.05
-        kp = 0
+        kp = 10
 
         while (targetDistance > tolerance):
             if (targetDistance < 0.5 or (initialTargetDistance - targetDistance) < 0.5):

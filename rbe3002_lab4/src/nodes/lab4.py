@@ -2,7 +2,6 @@
 
 import math
 import heapq
-from re import X
 import rospy
 import std_msgs.msg
 from KBHit import KBHit
@@ -67,20 +66,24 @@ class Lab4:
 
 
 
-    def nav_to_pose(self, x, y, th):
+    def nav_to_pose(self, path):
         nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
+        h = std_msgs.msg.Header()
+        h.stamp = rospy.Time.now()
+        h.frame_id = "/map"
+        msg = Path(h, path.path.poses)
         try:
-            resp = nav_to_pose(x, y, th)
+            resp = nav_to_pose(msg)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
 
 
 
-    def get_frontier_centroid(self, x, y):
-        best_frontier = rospy.ServiceProxy('best_frontier', BestFrontier)
+    def get_path_to_frontier(self, x, y):
+        best_frontier_path = rospy.ServiceProxy('best_frontier', BestFrontier)
         try:
-            resp = best_frontier(x, y)
+            resp = best_frontier_path(x, y)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -110,12 +113,14 @@ class Lab4:
         ## Get current pose from 'navigator' node
         curr_pose = self.get_curr_pose()
         ## Get centroid of best frontier from 'frontier explorer'
-        best_centroid = self.get_frontier_centroid(curr_pose.x, curr_pose.y)
-        ##      If frontiers to explore: Command 'navigator' node to drive to frontier centroid
-        if(best_centroid.exists):
-            newState = "phase1"
-            print("Navigate to centroid", best_centroid.x, best_centroid.y)
-            self.nav_to_pose(best_centroid.x, best_centroid.y, 0)
+        path = self.get_path_to_frontier(curr_pose.x, curr_pose.y)
+        print(path)
+        ## If frontiers to explore: Command 'navigator' node to drive to frontier centroid
+        if(path.exists):
+            newState = "phase1"    
+            self.nav_to_pose(path)
+            print("Navigate to pose")
+            print(path)
         else:
             newState = "phase2"
             print("Finished generating map!")

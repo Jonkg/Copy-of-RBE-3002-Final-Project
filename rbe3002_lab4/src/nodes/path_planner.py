@@ -174,6 +174,8 @@ class PathPlanner:
         
         return path
 
+
+
     @staticmethod
     def optimize_path(path):
         """
@@ -181,7 +183,6 @@ class PathPlanner:
         :param path [[(x,y)]] The path as a list of tuples (grid coordinates)
         :return     [[(x,y)]] The optimized path as a list of tuples (grid coordinates)
         """
-        ### EXTRA CREDIT
         rospy.loginfo("Optimizing path")
 
         ## Create
@@ -258,10 +259,7 @@ class PathPlanner:
         mapdata = self.get_cspace_map()
         if mapdata is None:
             rospy.loginfo("Error getting map")
-            return Path()
-
-        myTestCoord = Coord(msg.goal.pose.position.x, msg.goal.pose.position.y)
-        print(myTestCoord.x, myTestCoord.y)
+            return None
 
         ## Execute A*
         start = Lab4Util.world_to_grid(mapdata, Coord(msg.start.pose.position.x, msg.start.pose.position.y))
@@ -269,10 +267,10 @@ class PathPlanner:
         path  = self.a_star(mapdata, start, goal)
 
         ## Optimize path
-        waypoints = PathPlanner.optimize_path(path)
+        # waypoints = PathPlanner.optimize_path(path)
 
         ## Get Path message
-        path_msg = self.path_to_message(mapdata, waypoints)
+        path_msg = self.path_to_message(mapdata, path)
         self.path_pub.publish(path_msg)
         return path_msg
 

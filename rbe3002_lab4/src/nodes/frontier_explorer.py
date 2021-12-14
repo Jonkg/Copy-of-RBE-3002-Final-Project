@@ -396,12 +396,24 @@ class FrontierExplorer:
 
         robotPosGC = Lab4Util.world_to_grid(mapdata, Point(robotPos.x, robotPos.y, 0))
 
+
         # distance is the euclidean distance from the current robot position to the centroid
         distance = Lab4Util.euclidean_distance(robotPosGC.x, robotPosGC.y, centroid.x, centroid.y)
 
         # value is the length of the frontier divided by the distance 
         # value = length/(distance**2)
-        value = 1/distance
+        value = distance
+
+        print("Robot (x,y)")
+        print(robotPosGC.x)
+        print(robotPosGC.y)
+        print("Centroid (x,y)")
+        print(centroid.x)
+        print(centroid.y)
+        print("Distance:")
+        print(distance)
+        print("Value:")
+        print(value)
 
         return value
 

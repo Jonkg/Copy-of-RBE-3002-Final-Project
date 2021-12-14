@@ -81,7 +81,7 @@ class CspaceCalculator:
         ## SIM
         # padding = 3
         ## ROBOT
-        padding = 3
+        padding = 4
 
         ## Go through each cell in the occupancy grid
         ## Inflate the obstacles where necessary

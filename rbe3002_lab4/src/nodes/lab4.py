@@ -142,8 +142,6 @@ class Lab4:
     def PhaseTwo(self):
         print("PhaseTwo state!")    # Comment for troubleshooting purposes
 
-        print("Go to:")
-
         ## Navigate back to starting pose
 
         ## Make service call in if statement below to navigator node with desired pose as input

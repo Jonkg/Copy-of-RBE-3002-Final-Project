@@ -1,5 +1,3 @@
-float64 x
-float64 y
-float64 th
+nav_msgs/Path path
 ---
-bool finished
+

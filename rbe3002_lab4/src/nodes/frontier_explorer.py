@@ -113,6 +113,45 @@ class FrontierExplorer:
 
 
 
+    def request_path(self, centroidX, centroidY, robotPos):
+        """
+        Requests the path from path_planner
+        :return [Path] The grid if the service call was successful,
+                                None in case of error.
+        """
+    
+        rospy.loginfo("Requesting the path")
+        try: 
+            get_plan = rospy.ServiceProxy('plan_path', GetPlan)
+            req = GetPlan()
+
+            start_pose = Pose()
+            start_pose.position.x = robotPos.x
+            start_pose.position.y = robotPos.y
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            start_pose_stamped = PoseStamped(h, start_pose)
+
+            goal_pose = Pose()
+            goal_pose.position.x = centroidX
+            goal_pose.position.y = centroidY
+            h = std_msgs.msg.Header()
+            h.stamp = rospy.Time.now()
+            h.frame_id = "/map"
+            goal_pose_stamped = PoseStamped(h, goal_pose)
+
+            req.start = start_pose_stamped
+            req.goal = goal_pose_stamped
+            req.tolerance = 0
+            resp = get_plan(req.start, req.goal, req.tolerance)
+            rospy.loginfo("Got path succesfully")
+            return resp.plan
+        except rospy.ServiceException as e:
+           rospy.loginfo("Service call failed: %s"%e)
+
+
+
     def dilateFrontiers(self, mapdata, frontier_list, padding):
         """
         Refines the frontiers
@@ -327,16 +366,18 @@ class FrontierExplorer:
         resp = BestFrontierResponse()
 
         ## Get the centroid of the best frontier if a frontier exists
-        if not frontier_queue.empty():
+        while not frontier_queue.empty():
             best_frontier = frontier_queue.get()
             centroid = self.calc_centroid(mapdata, best_frontier)
-            resp.x = centroid.x
-            resp.y = centroid.y
-            resp.exists = True
-        else:
-            resp.x = 0
-            resp.y = 0
-            resp.exists = False
+            path = self.request_path(centroid.x, centroid.y, robotPos)
+            if(path != None):
+                if(len(path.poses) > 0):
+                    resp.path = path
+                    resp.exists = True
+                    return resp
+
+        ## Return false if no frontiers with valid paths
+        resp.exists = False
         
         return resp
 
@@ -357,7 +398,8 @@ class FrontierExplorer:
         distance = Lab4Util.euclidean_distance(robotPos.x, robotPos.y, centroid.x, centroid.y)
 
         # value is the length of the frontier divided by the distance 
-        value = length/distance
+        # value = length/(distance**2)
+        value = 1/distance
 
         return value
 
@@ -389,14 +431,16 @@ class FrontierExplorer:
         for index in cell_list:
             # get the current coordinate and calculate the distance
             current = Lab4Util.index_to_grid(mapdata, index)
-            curr_distance = Lab4Util.euclidean_distance(centroid.x, centroid.y, current.x, current.y)
-            # if the current distance is less than the closest distance, set the current as the new closest distance 
-            if curr_distance < closest_distance:
-                closest_distance = curr_distance
-                closest_cell = current
+            if Lab4Util.is_cell_walkable(mapdata, current.x, current.y):
+                curr_distance = Lab4Util.euclidean_distance(centroid.x, centroid.y, current.x, current.y)
+                # if the current distance is less than the closest distance, set the current as the new closest distance 
+                if curr_distance < closest_distance:
+                    closest_distance = curr_distance
+                    closest_cell = current
         
         # return the coordinate with the closest distance
         return closest_cell
+
 
 
     @staticmethod
@@ -438,19 +482,6 @@ class FrontierExplorer:
         # calculate the length by doing trig
         length = math.sqrt(delta_x**2 + delta_y**2)
         return length
-    
-
-    @staticmethod
-    def calc_frontier_distance(mapdata, frontier):
-        """
-        Calculates the length of the given frontier
-        :param mapdata  [OccupancyGrid] The map data
-        :param frontier [int]           List of cell indices in a frontier
-        :return         float           The length of the frontier
-        """
-        centroid = FrontierExplorer().calc_centroid(mapdata, frontier)
-        frontier_distance = Lab4Util().euclidean_distance()
-
 
 
 

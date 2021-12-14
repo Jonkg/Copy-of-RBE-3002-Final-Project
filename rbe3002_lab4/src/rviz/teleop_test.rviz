@@ -204,7 +204,7 @@ Visualization Manager:
       Class: rviz/GridCells
       Color: 78; 154; 6
       Enabled: true
-      Name: GridCells
+      Name: A-Star Goal
       Topic: /path_planner/goal
       Value: true
     - Alpha: 1

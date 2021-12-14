@@ -77,7 +77,7 @@ class CspaceCalculator:
         :return        [OccupancyGrid] The C-Space.
         """
         rospy.loginfo("Calculating C-Space")
-        padding = 3
+        padding = 2
 
         ## Go through each cell in the occupancy grid
         ## Inflate the obstacles where necessary
@@ -140,7 +140,8 @@ class CspaceCalculator:
         h.frame_id = "/map"
         c_space = OccupancyGrid(h, mapdata.info, curr_occ_grid.data)
         self.cspace_map = c_space
-        return mapdata
+
+        return self.cspace_map
 
 
 

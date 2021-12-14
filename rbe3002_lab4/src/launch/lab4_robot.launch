@@ -34,7 +34,7 @@
   <node pkg="rbe3002_lab4" type="cspace_calculator.py" name="cspace_calculator"/>
 
   <!-- Frontier Explorer -->
-  <!-- <node pkg="rbe3002_lab4" type="frontier_explorer.py" name="frontier_explorer"/> -->
+  <node pkg="rbe3002_lab4" type="frontier_explorer.py" name="frontier_explorer"/>
 
   <!-- Navigator -->
   <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>

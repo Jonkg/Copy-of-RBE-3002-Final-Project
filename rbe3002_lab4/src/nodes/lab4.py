@@ -122,6 +122,8 @@ class Lab4:
 
         ## Get current pose from 'navigator' node
         curr_pose = self.get_curr_pose()
+        print(curr_pose.x)
+        print(curr_pose.y)
         ## Get centroid of best frontier from 'frontier explorer'
         path = self.get_path_to_frontier(curr_pose.x, curr_pose.y)
         ## If frontiers to explore: Command 'navigator' node to drive to frontier centroid

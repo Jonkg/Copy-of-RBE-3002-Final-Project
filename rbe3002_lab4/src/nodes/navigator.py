@@ -34,7 +34,12 @@ class Navigator:
         ## Service to navigate to a desired pose
         nav_to_pose_service = rospy.Service('nav_to_pose', NavToPose, self.nav_to_pose)
 
+        ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1)
+
+        ## Wait for services to startup
+        rospy.wait_for_service('plan_path')
+        rospy.loginfo("Navigator node ready")
     
 
 
@@ -62,7 +67,6 @@ class Navigator:
         """
     
         rospy.loginfo("Requesting the path")
-        rospy.wait_for_service('plan_path')
         try: 
             get_plan = rospy.ServiceProxy('plan_path', GetPlan)
             req = GetPlan()

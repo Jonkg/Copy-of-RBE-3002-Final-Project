@@ -7,7 +7,9 @@ Panels:
         - /TF1/Frames1
         - /Map1
         - /C-Space1
+        - /C-Space1/Status1
         - /Frontier1
+        - /Frontier1/Status1
         - /Centroids1
       Splitter Ratio: 0.594406008720398
     Tree Height: 728
@@ -184,7 +186,7 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz/GridCells
-      Color: 255; 255; 0
+      Color: 173; 127; 168
       Enabled: true
       Name: Centroids
       Topic: /frontier_centroids

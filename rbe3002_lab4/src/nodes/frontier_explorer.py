@@ -5,6 +5,7 @@ from codecs import ignore_errors
 import rospy
 from rospy.core import add_shutdown_hook
 import std_msgs.msg
+from rbe3002_lab4.srv import BestFrontier, BestFrontierResponse
 from priority_queue import PriorityQueue
 from coord import Coord
 from lab4_util import Lab4Util
@@ -24,36 +25,57 @@ class FrontierExplorer:
         ## Initialize node
         rospy.init_node("frontier_explorer")
 
-        ## Subscribe to map topic
-        rospy.Subscriber('/map', OccupancyGrid, self.publishFrontier)
-
         ## Service call that accepts a posestamped message and call self.bestFrontier when 
         ## message is recieved
-        s = rospy.Service('best_frontier', PoseStamped, self.bestFrontier)
-
-        ## Service call that calls 
-        s1 = rospy.Service('get_frontiers', Empty, self.getAllFrontiers)
+        best_frontier = rospy.Service('best_frontier', BestFrontier, self.bestFrontier)
         
         ## Frontier Publisher
         self.frontier_pub = rospy.Publisher('/frontier', GridCells, queue_size = 10)
         self.frontier_centroid_pub = rospy.Publisher('/frontier_centroids', GridCells, queue_size = 10)
 
         ## Sleep to allow roscore to do some housekeeping
-        rospy.sleep(1.0)
+        rospy.sleep(1)
         rospy.loginfo("Frontier explorer node ready")
 
+        ## Wait for services to startup
+        rospy.wait_for_service('get_cspace')
 
 
-    def publishFrontier(self, mapdata):
+
+    def get_cspace_map(self):
+        try: 
+            get_cspace = rospy.ServiceProxy('get_cspace', GetMap)
+            resp = get_cspace()
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
+
+
+
+    def bestFrontier(self, msg):
+        """
+        Get the best frontier to go to
+        :param msg [PoseStamped] A posestamped message
+        :return     the centroid of the best frontier
+        """
         rospy.loginfo("Publishing frontier")
+
+        ## Get current robot position from msg
+        robotPos = Coord(msg.x, msg.y)
+
+        ## Request the map
+        ## In case of error, return an empty path
+        mapdata = self.get_cspace_map()
+
+        ## Get a list of frontier cell indices
         frontier_cell_indices = self.getFrontierCellIndices(mapdata)
         #refined_frontier_cell_indices = self.refineFrontier(mapdata, frontier_cell_indices, 1)
 
-        ## Identify frontiers
+        ## Identify independent frontiers from frontier list, and list centroids
         frontiers = self.identifyFrontiers(mapdata, frontier_cell_indices)
         frontier_centroids = []
         for frontier in frontiers:
-            frontier_centroids.append(FrontierExplorer().calc_centroid(mapdata, frontier))
+            frontier_centroids.append(self.calc_centroid(mapdata, frontier))
 
         ## Create list of frontier world cells
         frontier_cells = []
@@ -70,7 +92,7 @@ class FrontierExplorer:
         frontier_gridCells = GridCells(h, cell_width, cell_height, frontier_cells)
         self.frontier_pub.publish(frontier_gridCells)
 
-        ## Create list of frontier 
+        ## Create list of frontier centroid world cells
         frontier_centroid_cells = []
         for centroid in frontier_centroids:
             frontier_centroid_cells.append(Lab4Util.grid_to_world(mapdata, centroid.x, centroid.y))
@@ -83,49 +105,11 @@ class FrontierExplorer:
         cell_height = mapdata.info.resolution*3
         centroid_gridCells = GridCells(h, cell_width, cell_height, frontier_centroid_cells)
         self.frontier_centroid_pub.publish(centroid_gridCells)
-
-
-    def bestFrontier(self, msg):
-        """
-        Get the best frontier to go to
-        :param msg [PoseStamped] A posestamped message
-        :return     the centroid of the best frontier
-        """
-        ## Request the map
-        ## In case of error, return an empty path
-        map = FrontierExplorer.request_map()
-        if map is None:
-            return Path()
-        
-        goal_pose = msg.pose
-
-        #Get the list of frontiers
-        frontier_cell_indices = self.getFrontierCellIndices(map)
-        frontiers = self.identifyFrontiers(map, frontier_cell_indices)
         
         # get the best frontier to go to and return it
-        best_frontier = self.getBestFrontier(goal_pose, map, frontiers)
+        resp = self.getBestFrontier(robotPos, mapdata, frontiers)
         
-        centroid = self.calc_centroid(map, best_frontier)
-
-        return centroid
-
-
-    def getAllFrontiers(self, msg):
-        """
-        Gets a list of all the fronteirs
-        """
-
-        empty = msg
-
-        map = FrontierExplorer.request_map()
-        if map is None:
-            return Path()
-
-        frontier_cell_indices = self.getFrontierCellIndices(map)
-        frontiers = self.identifyFrontiers(map, frontier_cell_indices)
-
-        return frontiers
+        return resp
 
 
 
@@ -213,8 +197,9 @@ class FrontierExplorer:
                 # for each neighbor, check if it is a border, and if so, append to the list
                 for neighbor in neighbors:
                     neighbor_index = Lab4Util.grid_to_index(mapdata, neighbor.x, neighbor.y)
-                    if(mapdata.data[neighbor_index] == -1):
-                        isBorder = True
+                    if(neighbor_index < len(mapdata.data)):
+                        if(mapdata.data[neighbor_index] == -1):
+                            isBorder = True
                 if isBorder:
                     frontier_cell_indices.append(cell_index)
 
@@ -295,9 +280,7 @@ class FrontierExplorer:
                 curr_list = frontDict[neighbor_frontier_list[0]]
                 (frontDict[neighbor_frontier_list[0]])
                 ## set dict[key] to list of previous list plus new cell index
-                rospy.loginfo(frontDict[neighbor_frontier_list[0]])
                 frontDict[neighbor_frontier_list[0]].append(curr_index)
-                rospy.loginfo(frontDict[neighbor_frontier_list[0]])
 
             ## if 2+ neighboring frontiers (merge)
             else:
@@ -307,7 +290,6 @@ class FrontierExplorer:
                 new_frontier_list.append(curr_index)
 
                 ## Add all cell indices from neighboring frontiers, and take neighboring frontiers off list
-                rospy.loginfo(neighbor_frontier_list)
                 for key in neighbor_frontier_list:
                     for cell_index in frontDict[key]:
                         new_frontier_list.append(cell_index)
@@ -329,7 +311,7 @@ class FrontierExplorer:
 
 
 
-    def getBestFrontier(self, pose, mapdata, frontier_list):
+    def getBestFrontier(self, robotPos, mapdata, frontier_list):
         """
         Gets the best frontier from a list of frontiers and returns it
         :param mapdata [OccupancyGrid] The map data
@@ -339,17 +321,29 @@ class FrontierExplorer:
         
         # for each frontier in the list, get its weight and put it in the frontier queue
         for frontier in frontier_list:
-            weight = self.calc_value(pose, mapdata, frontier)
+            weight = self.calc_value(robotPos, mapdata, frontier)
             frontier_queue.put(frontier, weight)
+
+        resp = BestFrontierResponse()
+
+        ## Get the centroid of the best frontier if a frontier exists
+        if not frontier_queue.empty():
+            best_frontier = frontier_queue.get()
+            centroid = self.calc_centroid(mapdata, best_frontier)
+            resp.x = centroid.x
+            resp.y = centroid.y
+            resp.exists = True
+        else:
+            resp.x = 0
+            resp.y = 0
+            resp.exists = False
         
-        # get and return the best frontier 
-        best_frontier = frontier_queue.get()
-        return best_frontier
+        return resp
 
 
     
     #@staticmethod
-    def calc_value(self, pose, mapdata, frontier):
+    def calc_value(self, robotPos, mapdata, frontier):
         """
         Calculates the value of a frontier, where the value is the weight of the frontier
         :param mapdata [OccupancyGrid] The map data
@@ -360,35 +354,16 @@ class FrontierExplorer:
         centroid = self.calc_centroid(mapdata, frontier)
 
         # distance is the euclidean distance from the current robot position to the centroid
-        distance = Lab4Util.euclidean_distance(pose.x, pose.y, centroid.x, centroid.y)
+        distance = Lab4Util.euclidean_distance(robotPos.x, robotPos.y, centroid.x, centroid.y)
 
         # value is the length of the frontier divided by the distance 
         value = length/distance
 
         return value
 
-    
-    @staticmethod
-    def request_map():
-        """
-        Requests the map from the map server.
-        :return [OccupancyGrid] The grid if the service call was successful,
-                                None in case of error.
-        """
-        ### REQUIRED CREDIT
-        rospy.loginfo("Requesting the map")
-        rospy.wait_for_service('static_map')
-        try: 
-            get_map = rospy.ServiceProxy('static_map', GetMap)
-            resp = get_map()
-            rospy.loginfo("Got map succesfully")
-            return resp.map
-        except rospy.ServiceException as e:
-            rospy.loginfo("Service call failed: %s"%e)
 
 
-    @staticmethod
-    def calc_centroid(mapdata, cell_list):
+    def calc_centroid(self, mapdata, cell_list):
         """
         Caclulates the centroid of the frontier and returns the point of the frontier closest to that centroid
         :param mapdata [OccupancyGrid] The map data
@@ -408,6 +383,7 @@ class FrontierExplorer:
 
         # get the first coordinate in the frontier and instantiate the closest distance
         first_coord = Lab4Util.index_to_grid(mapdata, cell_list[0])
+        closest_cell = first_coord
         closest_distance = Lab4Util.euclidean_distance(centroid.x, centroid.y, first_coord.x, first_coord.y)
 
         for index in cell_list:
@@ -417,9 +393,10 @@ class FrontierExplorer:
             # if the current distance is less than the closest distance, set the current as the new closest distance 
             if curr_distance < closest_distance:
                 closest_distance = curr_distance
+                closest_cell = current
         
         # return the coordinate with the closest distance
-        return current
+        return closest_cell
 
 
     @staticmethod

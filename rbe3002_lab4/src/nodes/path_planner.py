@@ -42,12 +42,9 @@ class PathPlanner:
 
         ## Path publisher
         self.path_pub = rospy.Publisher('/path_planner/path_pub', Path, queue_size = 10)
-        
-        ## Initialize the request counter
-        # TODO
 
         ## Sleep to allow roscore to do some housekeeping
-        rospy.sleep(1.0)
+        rospy.sleep(1)
         rospy.loginfo("Path planner node ready")
 
 

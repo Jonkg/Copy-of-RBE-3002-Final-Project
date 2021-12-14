@@ -23,14 +23,14 @@
   <!-- C-Space Calculator -->
   <node pkg="rbe3002_lab4" type="cspace_calculator.py" name="cspace_calculator"/>
 
-  <!-- Frontier Explorer -->
+  <!--Frontier Explorer -->
   <!-- <node pkg="rbe3002_lab4" type="frontier_explorer.py" name="frontier_explorer"/> -->
 
   <!-- Path Planner -->
-  <!-- <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/> -->
+  <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/>
 
   <!-- Navigator -->
-  <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>
+  <!-- <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/> -->
 
   <!-- Lab4 -->
   <!-- <node pkg="rbe3002_lab4" type="lab4.py" name="lab4"/> -->

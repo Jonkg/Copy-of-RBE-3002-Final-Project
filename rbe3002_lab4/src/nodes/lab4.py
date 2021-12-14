@@ -6,7 +6,7 @@ import rospy
 import std_msgs.msg
 from KBHit import KBHit
 from coord import Coord
-from rbe3002_lab4.srv import GetPose, NavToPose, BestFrontier
+from rbe3002_lab4.srv import GetPose, NavToPose, BestFrontier, FollowPath
 from tf.transformations import euler_from_quaternion
 from state_machine import StateMachine
 from nav_msgs.srv import GetPlan, GetMap
@@ -66,14 +66,24 @@ class Lab4:
 
 
 
-    def nav_to_pose(self, path):
-        nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
+    def follow_path(self, path):
+        follow_path = rospy.ServiceProxy('follow_path', FollowPath)
         h = std_msgs.msg.Header()
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         msg = Path(h, path.path.poses)
         try:
-            resp = nav_to_pose(msg)
+            resp = follow_path(msg)
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+        return resp
+
+
+
+    def nav_to_pose(self, x, y, th):
+        nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
+        try:
+            resp = nav_to_pose(x, y, th)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -114,17 +124,14 @@ class Lab4:
         curr_pose = self.get_curr_pose()
         ## Get centroid of best frontier from 'frontier explorer'
         path = self.get_path_to_frontier(curr_pose.x, curr_pose.y)
-        print(path)
         ## If frontiers to explore: Command 'navigator' node to drive to frontier centroid
         if(path.exists):
             newState = "phase1"    
-            self.nav_to_pose(path)
+            self.follow_path(path)
             print("Navigate to pose")
-            print(path)
         else:
             newState = "phase2"
             print("Finished generating map!")
-            ### SAVE THE MAP HERE ###
 
         return newState
 
@@ -134,7 +141,6 @@ class Lab4:
         print("PhaseTwo state!")    # Comment for troubleshooting purposes
 
         print("Go to:")
-        print(self.initial_pose)
 
         ## Navigate back to starting pose
 
@@ -143,9 +149,11 @@ class Lab4:
             ##      If within tolerance, stop and return true
             ##      Else, set wheel speeds for go to pose and return false
 
-        if(self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)):
+        resp = self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)
+        if(resp.reachedGoal):
             print("Arrived at destination!")
             newState = "phase3"
+            ### SAVE THE MAP HERE ###
         else:
             newState = "phase2"
         

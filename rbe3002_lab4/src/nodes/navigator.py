@@ -94,7 +94,7 @@ class Navigator:
 
         path = self.request_path(msg.x, msg.y, robotPose)
 
-        for pose in path:
+        for pose in path.poses:
             self.go_to(pose.pose.position.x, pose.pose.position.y)
 
         self.final_heading(pose.pose)

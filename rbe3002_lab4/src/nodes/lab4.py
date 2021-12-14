@@ -6,6 +6,7 @@ import rospy
 import std_msgs.msg
 from KBHit import KBHit
 from coord import Coord
+from lab4_util import Lab4Util
 from rbe3002_lab4.srv import GetPose, NavToPose, BestFrontier, FollowPath
 from tf.transformations import euler_from_quaternion
 from state_machine import StateMachine
@@ -24,7 +25,6 @@ class Lab4:
 
         ## Declare variables
         self.initial_pose = None
-        self.mapdata = None
         self.goal_pose = None
         self.goal_set = False
 
@@ -46,7 +46,7 @@ class Lab4:
         pose = GetPose()
         pose.x = msg.pose.position.x
         pose.y = msg.pose.position.y
-        quat_orig = msg.pose.pose.orientation
+        quat_orig = msg.pose.orientation
         quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
         (roll, pitch, yaw) = euler_from_quaternion(quat_list)
         pose.th = yaw
@@ -82,8 +82,11 @@ class Lab4:
 
     def nav_to_pose(self, x, y, th):
         nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
+        goalPosWC = Point(x, y, 0)
+        mapdata = self.get_cspace_map()
+        goalPosGC = Lab4Util.world_to_grid(mapdata, goalPosWC)
         try:
-            resp = nav_to_pose(x, y, th)
+            resp = nav_to_pose(goalPosGC.x, goalPosGC.y, th)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -97,6 +100,16 @@ class Lab4:
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
+
+
+
+    def get_cspace_map(self):
+        try: 
+            get_cspace = rospy.ServiceProxy('get_cspace', GetMap)
+            resp = get_cspace()
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
 
 
 
@@ -152,35 +165,10 @@ class Lab4:
         resp = self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)
         if(resp.reachedGoal):
             print("Arrived at destination!")
-            newState = "phase3"
-            ### SAVE THE MAP HERE ###
+            newState = "end"
         else:
             newState = "phase2"
         
-        return newState
-
-
-
-    def PhaseThree(self):
-        print("PhaseThree state!")  # Comment for troubleshooting purposes
-        rospy.sleep(5)
-
-        ## Navigate to selected goal pose
-
-        ## Make service call in if statement below to navigator node with desired pose as input
-            ## Service would check if within tolerance and return bool
-            ##      If within tolerance, stop and return true
-            ##      Else, set wheel speeds for go to pose and return false
-
-        if(self.goal_set):
-            if(self.nav_to_pose(self.goal_pose.x, self.goal_pose.y, self.goal_pose.th)):
-                newState = "end"
-                print("Arrived at destination!")
-            else:
-                newState = "phase3"
-        else:
-            newState = "phase3"
-
         return newState
 
 
@@ -190,7 +178,6 @@ class Lab4:
         sm.add_state("idle", self.Idle)
         sm.add_state("phase1", self.PhaseOne)
         sm.add_state("phase2", self.PhaseTwo)
-        sm.add_state("phase3", self.PhaseThree)
         sm.add_state("end", None, end_state = 1)
         sm.set_start("idle")
         print("Start!")

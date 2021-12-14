@@ -5,7 +5,7 @@ import std_msgs.msg
 from coord import Coord
 from lab4_util import Lab4Util
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
-from nav_msgs.srv import GetPlan, GetMap
+from nav_msgs.srv import GetPlan, GetMap, GetMapResponse
 from geometry_msgs.msg import Point, Pose, PoseStamped
 
 
@@ -18,6 +18,10 @@ class CspaceCalculator:
         """
         Class constructor
         """
+        
+        ## Store scpace map
+        self.cspace_map = None
+
         ## Initialize node
         rospy.init_node("cspace_calculator")
 
@@ -25,33 +29,26 @@ class CspaceCalculator:
         rospy.Subscriber('/map', OccupancyGrid, self.calc_cspace)
 
         ## Create a Cspace service (might have to change msg type)
-        s = rospy.Service('get_cspace', GridCells, self.get_cspace)
+        get_cspace = rospy.Service('get_cspace', GetMap, self.get_cspace)
         
         ## Create C-space publisher
         self.cspace_pub = rospy.Publisher('/cspace', GridCells, queue_size = 10)
 
         ## Sleep to allow roscore to do some housekeeping
-        rospy.sleep(1.0)
+        rospy.sleep(1)
         rospy.loginfo("C-space calculator node ready")
+
 
 
     def get_cspace(self, msg):
         """
         Gets the cspace 
         """
-
-        empty = msg
-
-        ## Request the map
-        ## In case of error, return an empty path
-        map = CspaceCalculator.request_map()
-        if map is None:
-            return Path()
-
-        c_space = self.calc_cspace(map)
-
-        return c_space
+        resp = GetMapResponse()
+        resp.map = self.cspace_map
+        return resp
     
+
 
     @staticmethod
     def request_map():
@@ -70,6 +67,7 @@ class CspaceCalculator:
             return resp.map
         except rospy.ServiceException as e:
             rospy.loginfo("Service call failed: %s"%e)
+
 
 
     def calc_cspace(self, mapdata):
@@ -101,7 +99,7 @@ class CspaceCalculator:
                 obstacle_cell_indices.append(index)
                 cspace_data.append(100)
             else:
-                cspace_data.append(0)
+                cspace_data.append(curr_occ_grid.data[index])
 
         while padding > 0:   
             ## Iterate through list of obstacle cells and list cells to add
@@ -143,7 +141,8 @@ class CspaceCalculator:
         h.stamp = rospy.Time.now()
         h.frame_id = "/map"
         c_space = OccupancyGrid(h, mapdata.info, curr_occ_grid.data)
-        return c_space
+        self.cspace_map = c_space
+        return mapdata
 
 
 

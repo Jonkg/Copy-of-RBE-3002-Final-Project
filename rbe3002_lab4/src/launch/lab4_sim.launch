@@ -21,7 +21,6 @@
   </group>
 
   <!-- TurtleBot3 Teleop -->
-  <include file="$(find turtlebot3_teleop)/launch/turtlebot3_teleop_key.launch"/>
 
   <!-- C-Space Calculator -->
   <node pkg="rbe3002_lab4" type="cspace_calculator.py" name="cspace_calculator"/>
@@ -31,5 +30,8 @@
 
   <!-- Navigator -->
   <!-- <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/> -->
+
+  <!-- Lab4 -->
+  <!-- <node pkg="rbe3002_lab4" type="lab4.py" name="lab4"/> -->
 
 </launch>

@@ -7,7 +7,8 @@ import rospy
 import std_msgs.msg
 from KBHit import KBHit
 from coord import Coord
-from rbe3002_lab4.srv import GetPose, NavToPose
+from rbe3002_lab4.srv import GetPose, NavToPose, BestFrontier
+from tf.transformations import euler_from_quaternion
 from state_machine import StateMachine
 from nav_msgs.srv import GetPlan, GetMap
 from nav_msgs.msg import GridCells, OccupancyGrid, Path
@@ -33,12 +34,26 @@ class Lab4:
         ## Subscribe to '/move_base_simple/goal' topic to get final psoe for Phase 3
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.set_goal)
 
+        ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1)
+
+        ## Wait for services to startup
+        rospy.wait_for_service('nav_to_pose')
+        rospy.wait_for_service('best_frontier')
+        rospy.wait_for_service('get_cspace')
+        rospy.loginfo("Lab4 node ready")
 
 
 
     def set_goal(self, msg):
-        self.goal_pose = msg.pose
+        pose = GetPose()
+        pose.x = msg.pose.position.x
+        pose.y = msg.pose.position.y
+        quat_orig = msg.pose.pose.orientation
+        quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
+        (roll, pitch, yaw) = euler_from_quaternion(quat_list)
+        pose.th = yaw
+        self.goal_pose = pose
         self.goal_set = True
 
 
@@ -55,10 +70,19 @@ class Lab4:
 
 
     def nav_to_pose(self, x, y, th):
-        rospy.wait_for_service('nav_to_pose')
         nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
         try:
             resp = nav_to_pose(x, y, th)
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+        return resp
+
+
+
+    def get_frontier_centroid(self, x, y):
+        best_frontier = rospy.ServiceProxy('best_frontier', BestFrontier)
+        try:
+            resp = best_frontier(x, y)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -70,13 +94,13 @@ class Lab4:
 
         kb = KBHit()
         if kb.kbhit():
-            ### SAVE INITIAL POSE HERE ###
-           newState = "phase1"
+            self.initial_pose = self.get_curr_pose()
+            newState = "phase1"
         else:
             newState = "idle"
         kb.set_normal_term()
 
-        return(newState)
+        return newState
         
 
 
@@ -86,19 +110,21 @@ class Lab4:
         ## Explore unknown map and save map to file
 
         ## Get current pose from 'navigator' node
+        curr_pose = self.get_curr_pose()
         ## Get centroid of best frontier from 'frontier explorer'
-        #best_centroid = rospy.ServiceProxy('best_frontier', PoseStamped)
+        best_centroid = self.get_frontier_centroid(curr_pose.x, curr_pose.y)
         ##      If frontiers to explore: Command 'navigator' node to drive to frontier centroid
-        #frontiers = rospy.ServiceProxy('get_frontiers', Empty)
-        
+        if(best_centroid.exists):
+            newState = "phase1"
+            # GO TO THE BEST CENTROID
+            print(best_centroid.x)
+            print(best_centroid.y)
+        else:
+            newState = "phase2"
+            print("Finished generating map!")
+            ### SAVE THE MAP HERE ###
 
-
-        ##      Else: Save the map (decide where/how to do this) and change state
-
-        newState = "phase2"     ## THIS IS TEMPORARY
-        self.initial_pose = self.get_curr_pose()
-
-        return(newState)
+        return newState
 
 
 
@@ -115,19 +141,19 @@ class Lab4:
             ##      If within tolerance, stop and return true
             ##      Else, set wheel speeds for go to pose and return false
 
-        ## Change condition below to be the service call to navigator node
         if(self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)):
             print("Arrived at destination!")
             newState = "phase3"
         else:
             newState = "phase2"
         
-        return(newState)
+        return newState
 
 
 
     def PhaseThree(self):
         print("PhaseThree state!")  # Comment for troubleshooting purposes
+        rospy.sleep(5)
 
         ## Navigate to selected goal pose
 
@@ -136,18 +162,16 @@ class Lab4:
             ##      If within tolerance, stop and return true
             ##      Else, set wheel speeds for go to pose and return false
 
-        self.goal_set = True     ## THIS IS TEMPORARY
-
         if(self.goal_set):
-            ## Change condition below to be the service call to navigator node
-            if(True):
+            if(self.nav_to_pose(self.goal_pose.x, self.goal_pose.y, self.goal_pose.th)):
                 newState = "end"
+                print("Arrived at destination!")
             else:
                 newState = "phase3"
         else:
             newState = "phase3"
 
-        return(newState)
+        return newState
 
 
 

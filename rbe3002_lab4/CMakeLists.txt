@@ -59,6 +59,7 @@ add_service_files(
   FILES
   GetPose.srv
   NavToPose.srv
+  BestFrontier.srv
 )
 
 ## Generate actions in the 'action' folder

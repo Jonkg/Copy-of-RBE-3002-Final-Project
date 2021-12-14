@@ -90,7 +90,7 @@ class Navigator:
         Navigates the robot to the specified point
         :param msg [PoseStamped]
         """
-        robotPose = self.getPose(0)
+        robotPose = self.get_pose(0)
 
         path = self.request_path(msg.x, msg.y, robotPose)
 
@@ -189,33 +189,6 @@ class Navigator:
 
         return msg_cmd_vel
 
-        
-
-    def drive(self, distance, linear_speed):
-        """
-        Drives the robot in a straight line.
-        :param distance     [float] [m]   The distance to cover.
-        :param linear_speed [float] [m/s] The forward linear speed.
-        """
-        ### REQUIRED CREDIT
-
-        initialX = self.px
-        initialY = self.py
-
-        targetXRoboFrame = distance
-        currentXRoboFrame = 0
-
-        tolerance = 0.05
-        kp = 8
-
-        while (abs(targetXRoboFrame - currentXRoboFrame) > tolerance):
-            currentXRoboFrame = math.cos(self.pth)*(self.px-initialX) + math.sin(self.pth)*(self.py-initialY)
-            currentYRoboFrame = -math.sin(self.pth)*(self.px-initialX) + math.cos(self.pth)*(self.py-initialY)
-            self.send_speed(linear_speed, currentYRoboFrame*kp)
-            rospy.sleep(0.05)
-
-        self.send_speed(0, 0)
-
 
 
     def boundAngle(self, angle):
@@ -267,7 +240,7 @@ class Navigator:
 
     def go_to(self, targetX, targetY):
         """
-        Calls rotate(), drive(), and rotate() to attain a given pose.
+        Calls rotate() and rotate() to attain a given pose.
         This method is a callback bound to a Subscriber.
         :param msg [PoseStamped] The target pose.
         """

@@ -6,6 +6,7 @@
   <arg name="open_rviz" default="true"/>
   <arg name="multi_robot_name" default=""/>
 
+  <!-- Turtlebot3 -->
   <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
     <arg name="model" value="$(arg model)" />
     <arg name="multi_robot_name" value="$(arg multi_robot_name)"/>
@@ -17,9 +18,8 @@
   </node>
 
   <!-- SLAM: Gmapping, Cartographer, Hector, Karto, Frontier_exploration, RTAB-Map -->
-  <include file="$(find turtlebot3_slam)/launch/turtlebot3_$(arg slam_methods).launch">
+  <include file="$(find rbe3002_lab4)/src/launch/turtlebot3_gmapping_custom.launch">
     <arg name="model" value="$(arg model)"/>
-    <arg_name="delta" value="0.25"
     <arg name="configuration_basename" value="$(arg configuration_basename)"/>
   </include>
 
@@ -29,13 +29,14 @@
           args="-d $(find rbe3002_lab4)/src/rviz/teleop_test.rviz"/>
   </group>
 
-  <!-- TurtleBot3 Teleop -->
-
   <!-- C-Space Calculator -->
   <node pkg="rbe3002_lab4" type="cspace_calculator.py" name="cspace_calculator"/>
 
   <!-- Frontier Explorer -->
   <node pkg="rbe3002_lab4" type="frontier_explorer.py" name="frontier_explorer"/>
+
+  <!-- Path Planner -->
+  <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/>
 
   <!-- Navigator -->
   <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>

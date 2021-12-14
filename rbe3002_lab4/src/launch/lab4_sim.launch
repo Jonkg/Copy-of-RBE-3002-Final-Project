@@ -30,7 +30,7 @@
   <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/>
 
   <!-- Navigator -->
-  <!-- <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/> -->
+  <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>
 
   <!-- Lab4 -->
   <!-- <node pkg="rbe3002_lab4" type="lab4.py" name="lab4"/> -->

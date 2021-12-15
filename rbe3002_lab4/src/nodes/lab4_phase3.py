@@ -7,7 +7,7 @@ import std_msgs.msg
 from KBHit import KBHit
 from coord import Coord
 from lab4_util import Lab4Util
-from rbe3002_lab4.srv import GetPose, NavToPose, BestFrontier, FollowPath
+from rbe3002_lab4.srv import GetPose, NavToPose, Localize
 from tf.transformations import euler_from_quaternion
 from state_machine import StateMachine
 from nav_msgs.srv import GetPlan, GetMap
@@ -17,7 +17,7 @@ from std_srvs.srv._Empty import Empty
 
 
 
-class Lab4:
+class Lab4_Phase3:
 
     def __init__(self):
         ## Initialize node
@@ -35,6 +35,7 @@ class Lab4:
 
         ## Wait for services to startup
         rospy.wait_for_service('nav_to_pose')
+        rospy.wait_for_service('get_cspace')
         rospy.loginfo("Lab4 Phase 3 node ready")
 
 
@@ -63,6 +64,17 @@ class Lab4:
 
 
 
+    def localization_routine(self, numTurns, angle, speed):
+        rospy.wait_for_service('localize')
+        localize = rospy.ServiceProxy('localize', Localize)
+        try:
+            resp = localize(numTurns, angle, speed)
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+        return resp
+
+
+
     def nav_to_pose(self, x, y, th):
         nav_to_pose = rospy.ServiceProxy('nav_to_pose', NavToPose)
         goalPosWC = Point(x, y, 0)
@@ -74,6 +86,16 @@ class Lab4:
             print("Service did not process request: " + str(exc))
         return resp
 
+    
+
+    def get_cspace_map(self):
+        try: 
+            get_cspace = rospy.ServiceProxy('get_cspace', GetMap)
+            resp = get_cspace()
+            return resp.map
+        except rospy.ServiceException as e:
+            rospy.loginfo("Service call failed: %s"%e)
+
 
 
     def Idle(self):
@@ -82,11 +104,26 @@ class Lab4:
         kb = KBHit()
         if kb.kbhit():
             self.initial_pose = self.get_curr_pose()
-            newState = "phase1"
+            newState = "localize"
         else:
             newState = "idle"
         kb.set_normal_term()
 
+        return newState
+
+    
+
+    def Localize(self):
+        print("Localize state!")    # Comment for troubleshooting purposes
+
+        ## Spin to give AMCL a chance to localize the robot
+
+        resp = self.localization_routine(1, 2, 0.5)
+        if(resp.finished):
+            newState = "phase3"
+        else:
+            newState = "localize"
+        
         return newState
 
 
@@ -101,13 +138,20 @@ class Lab4:
             ##      If within tolerance, stop and return true
             ##      Else, set wheel speeds for go to pose and return false
 
-        resp = self.nav_to_pose(self.initial_pose.x, self.initial_pose.y, self.initial_pose.th)
-        if(resp.reachedGoal):
-            print("Arrived at destination!")
-            newState = "end"
+        pose = self.get_curr_pose()
+        print(pose.x)
+        print(pose.y)
+
+        if(self.goal_set):
+            resp = self.nav_to_pose(self.goal_pose.x, self.goal_pose.y, self.goal_pose.th)
+            if(resp.reachedGoal):
+                print("Arrived at destination!")
+                newState = "end"
+            else:
+                newState = "phase3"
         else:
-            newState = "phase2"
-        
+            newState = "phase3"
+
         return newState
 
 
@@ -115,8 +159,8 @@ class Lab4:
     def run(self):
         sm = StateMachine()
         sm.add_state("idle", self.Idle)
-        sm.add_state("phase1", self.PhaseOne)
-        sm.add_state("phase2", self.PhaseTwo)
+        sm.add_state("localize", self.Localize)
+        sm.add_state("phase3", self.PhaseThree)
         sm.add_state("end", None, end_state = 1)
         sm.set_start("idle")
         print("Start!")
@@ -125,4 +169,4 @@ class Lab4:
 
 
 if __name__ == '__main__':
-    Lab4().run()
+    Lab4_Phase3().run()

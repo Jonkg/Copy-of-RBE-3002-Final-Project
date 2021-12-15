@@ -36,6 +36,9 @@ class Lab4_Phase3:
         ## Wait for services to startup
         rospy.wait_for_service('nav_to_pose')
         rospy.wait_for_service('get_cspace')
+        rospy.wait_for_service('get_pose')
+        rospy.wait_for_service('localize')
+        rospy.wait_for_service('global_localization')
         rospy.loginfo("Lab4 Phase 3 node ready")
 
 
@@ -54,10 +57,19 @@ class Lab4_Phase3:
 
 
     def get_curr_pose(self):
-        rospy.wait_for_service('get_pose')
         get_pose = rospy.ServiceProxy('get_pose', GetPose)
         try:
             resp = get_pose()
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+        return resp
+    
+
+
+    def init_localization(self):
+        init_localization = rospy.ServiceProxy('global_localization', GetPose)
+        try:
+            resp = init_localization()
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -65,7 +77,6 @@ class Lab4_Phase3:
 
 
     def localization_routine(self, numTurns, angle, speed):
-        rospy.wait_for_service('localize')
         localize = rospy.ServiceProxy('localize', Localize)
         try:
             resp = localize(numTurns, angle, speed)
@@ -104,6 +115,7 @@ class Lab4_Phase3:
         kb = KBHit()
         if kb.kbhit():
             self.initial_pose = self.get_curr_pose()
+            # self.init_localization()
             newState = "localize"
         else:
             newState = "idle"
@@ -118,7 +130,7 @@ class Lab4_Phase3:
 
         ## Spin to give AMCL a chance to localize the robot
 
-        resp = self.localization_routine(1, 2, 0.5)
+        resp = self.localization_routine(6, 2, 0.5)
         if(resp.finished):
             newState = "phase3"
         else:

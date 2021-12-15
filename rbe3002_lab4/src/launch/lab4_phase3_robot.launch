@@ -19,15 +19,15 @@
   </node>
 
   <!-- Map Server -->
-  <arg name="map_file" default="$(find rbe3002_lab4)/maps/map1.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
+  <arg name="map_file" default="$(find rbe3002_lab4)/map/test_map6.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
 
   <!-- AMCL -->
-  <include file="$(find rbe3002_lab4)/src/launch/amcl_custom.launch">
+  <include file="$(find rbe3002_lab4)/src/launch/amcl_custom.launch"/>
 
   <!-- RVIZ -->
   <group if="$(arg open_rviz)"> 
     <node pkg="rviz" type="rviz" name="rviz" required="true"
-          args="-d $(find rbe3002_lab4)/src/rviz/teleop_test.rviz"/>
+          args="-d $(find rbe3002_lab4)/src/rviz/phase3.rviz"/>
   </group>
 
   <!-- C-Space Calculator -->
@@ -37,7 +37,7 @@
   <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/>
 
   <!-- Navigator -->
-  <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>
+  <node pkg="rbe3002_lab4" type="navigator_phase3.py" name="navigator"/>
 
   <!-- Lab4 Phase 3 -->
   <!-- <node pkg="rbe3002_lab4" type="lab4_phase3.py" name="lab4_phase3"/> -->

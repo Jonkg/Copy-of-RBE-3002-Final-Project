@@ -106,13 +106,28 @@ class Navigator:
 
         path = self.request_path(msg.x, msg.y, robotPose)
 
+        resp = NavToPoseResponse()
+
         for pose in path.poses:
             self.go_to(pose.pose.position.x, pose.pose.position.y)
 
         self.final_heading(pose.pose)
 
-        resp = NavToPoseResponse()
         resp.reachedGoal = True
+
+        # if (len(path.poses) > 4):
+        #     self.go_to(path.poses[2].pose.position.x, path.poses[2].pose.position.y)
+        #     self.go_to(path.poses[3].pose.position.x, path.poses[3].pose.position.y)
+        #     self.go_to(path.poses[4].pose.position.x, path.poses[4].pose.position.y)
+        #     self.go_to(path.poses[5].pose.position.x, path.poses[5].pose.position.y)
+        #     self.go_to(path.poses[6].pose.position.x, path.poses[6].pose.position.y)
+        #     self.go_to(path.poses[7].pose.position.x, path.poses[7].pose.position.y)
+        #     resp.reachedGoal = False
+        # else:
+        #     for pose in path:
+        #         self.go_to(pose.pose.position.x, pose.pose.position.y)
+        #     self.final_heading(pose.pose)
+        #     resp.reachedGoal = True
 
         return resp
 

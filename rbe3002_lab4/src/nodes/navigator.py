@@ -31,7 +31,8 @@ class Navigator:
         ### When a message is received, call self.update_odometry
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
 
-        self.listener = tf.TransformListener()
+        ## Define TF Transform Listener
+        # self.listener = tf.TransformListener()
 
         ## Service to get current pose of the robot
         get_pose_service = rospy.Service('get_pose', GetPose, self.get_pose)
@@ -288,17 +289,25 @@ class Navigator:
 
         #transform from map to base_footprint
         
-        try:
-            (trans, rot) = self.listener.lookupTransform('/map', 'base_footprint', rospy.Time(0))
-            self.px = trans[0]
-            self.py = trans[1]
-            quat_orig = rot
-            self.quat = quat_orig
-            quat_list = [quat_orig[0], quat_orig[1], quat_orig[2], quat_orig[3]]
-            (roll, pitch, yaw) = euler_from_quaternion(quat_list)
-            self.pth = yaw
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            pass
+        # try:
+        #     (trans, rot) = self.listener.lookupTransform('/map', 'base_footprint', rospy.Time(0))
+        #     self.px = trans[0]
+        #     self.py = trans[1]
+        #     quat_orig = rot
+        #     self.quat = quat_orig
+        #     quat_list = [quat_orig[0], quat_orig[1], quat_orig[2], quat_orig[3]]
+        #     (roll, pitch, yaw) = euler_from_quaternion(quat_list)
+        #     self.pth = yaw
+        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        #     pass
+
+        self.px = msg.pose.pose.position.x
+        self.py = msg.pose.pose.position.y
+        quat_orig = msg.pose.pose.orientation
+        self.quat = quat_orig
+        quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
+        (roll, pitch, yaw) = euler_from_quaternion(quat_list)
+        self.pth = yaw
 
 
     def run(self):

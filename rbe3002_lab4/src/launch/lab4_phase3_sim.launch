@@ -8,22 +8,8 @@
   <arg name="y_pos" default="0.4"/>
   <arg name="z_pos" default="0.05"/>
 
-  <!-- Turtlebot3  -->
-  <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch" />
-
-  <!-- Gazebo -->
-  <env name="GAZEBO_MODEL_PATH" value="$(find rbe3002_final)/models:$(optenv GAZEBO_MODEL_PATH"/>
-  <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="paused" value="false"/>
-    <arg name="use_sim_time" value="true"/>
-    <arg name="gui" value="true"/>
-    <arg name="headless" value="false"/>
-    <arg name="debug" value="false"/>
-  </include>
-
-  <param name="robot_description" command="$(find xacro)/xacro.py $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
-
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3_burger -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+  <!-- Test Map in Gazebo (includes TurtleBot3) -->
+  <include file="$(find rbe3002_final)/launch/final_maze.launch"/>
 
   <!-- Joint State Publisher -->
   <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher">
@@ -32,7 +18,7 @@
   </node>
 
   <!-- Map Server -->
-  <arg name="map_file" default="$(find rbe3002_lab4)/map/test_map1.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
+  <arg name="map_file" default="$(find rbe3002_lab4)/map/gazebo_map.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
 
   <!-- AMCL -->
   <include file="$(find rbe3002_lab4)/src/launch/amcl_custom.launch"/>

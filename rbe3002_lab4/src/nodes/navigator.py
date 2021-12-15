@@ -3,6 +3,7 @@
 import math
 import rospy
 import std_msgs.msg
+import tf
 from geometry_msgs.msg import Point, Pose, PoseStamped, Twist
 from rbe3002_lab4.srv import GetPose, GetPoseResponse, NavToPose, NavToPoseResponse, FollowPath, FollowPathResponse
 from nav_msgs.msg import GridCells, OccupancyGrid, Odometry, Path
@@ -29,6 +30,8 @@ class Navigator:
         ### Tell ROS that this node subscribes to Odometry messages on the '/odom' topic
         ### When a message is received, call self.update_odometry
         rospy.Subscriber('/odom', Odometry , self.update_odometry)
+
+        self.listener = tf.TransformListener()
 
         ## Service to get current pose of the robot
         get_pose_service = rospy.Service('get_pose', GetPose, self.get_pose)
@@ -282,14 +285,20 @@ class Navigator:
         This method is a callback bound to a Subscriber.
         :param msg [Odometry] The current odometry information.
         """
-        self.px = msg.pose.pose.position.x
-        self.py = msg.pose.pose.position.y
-        quat_orig = msg.pose.pose.orientation
-        self.quat = quat_orig
-        quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
-        (roll, pitch, yaw) = euler_from_quaternion(quat_list)
-        self.pth = yaw
 
+        #transform from map to base_footprint
+        
+        try:
+            (trans, rot) = self.listener.lookupTransform('/map', 'base_footprint', rospy.Time(0))
+            self.px = trans[0]
+            self.py = trans[1]
+            quat_orig = rot
+            self.quat = quat_orig
+            quat_list = [quat_orig[0], quat_orig[1], quat_orig[2], quat_orig[3]]
+            (roll, pitch, yaw) = euler_from_quaternion(quat_list)
+            self.pth = yaw
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            pass
 
 
     def run(self):

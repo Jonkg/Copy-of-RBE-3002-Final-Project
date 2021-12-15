@@ -21,19 +21,34 @@ class Lab4:
 
     def __init__(self):
         ## Initialize node
-        rospy.init_node("lab4")
+        rospy.init_node("lab4_phase3")
 
         ## Declare variables
-        self.initial_pose = None
+        self.goal_pose = None
+        self.goal_set = False
+
+        ## Subscribe to '/move_base_simple/goal' topic to get final psoe for Phase 3
+        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.set_goal)
 
         ## Sleep to allow roscore to do some housekeeping
         rospy.sleep(1)
 
         ## Wait for services to startup
         rospy.wait_for_service('nav_to_pose')
-        rospy.wait_for_service('best_frontier')
-        rospy.wait_for_service('get_cspace')
-        rospy.loginfo("Lab4 node ready")
+        rospy.loginfo("Lab4 Phase 3 node ready")
+
+
+
+    def set_goal(self, msg):
+        pose = GetPose()
+        pose.x = msg.pose.position.x
+        pose.y = msg.pose.position.y
+        quat_orig = msg.pose.orientation
+        quat_list = [quat_orig.x, quat_orig.y, quat_orig.z, quat_orig.w]
+        (roll, pitch, yaw) = euler_from_quaternion(quat_list)
+        pose.th = yaw
+        self.goal_pose = pose
+        self.goal_set = True
 
 
 
@@ -42,20 +57,6 @@ class Lab4:
         get_pose = rospy.ServiceProxy('get_pose', GetPose)
         try:
             resp = get_pose()
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
-        return resp
-
-
-
-    def follow_path(self, path):
-        follow_path = rospy.ServiceProxy('follow_path', FollowPath)
-        h = std_msgs.msg.Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = "/map"
-        msg = Path(h, path.path.poses)
-        try:
-            resp = follow_path(msg)
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
         return resp
@@ -75,26 +76,6 @@ class Lab4:
 
 
 
-    def get_path_to_frontier(self, x, y):
-        best_frontier_path = rospy.ServiceProxy('best_frontier', BestFrontier)
-        try:
-            resp = best_frontier_path(x, y)
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
-        return resp
-
-
-
-    def get_cspace_map(self):
-        try: 
-            get_cspace = rospy.ServiceProxy('get_cspace', GetMap)
-            resp = get_cspace()
-            return resp.map
-        except rospy.ServiceException as e:
-            rospy.loginfo("Service call failed: %s"%e)
-
-
-
     def Idle(self):
         ## If keyboard press: save initial pose and start Phase 1
 
@@ -107,35 +88,11 @@ class Lab4:
         kb.set_normal_term()
 
         return newState
-        
-
-
-    def PhaseOne(self):
-        print("PhaseOne state!")    # Comment for troubleshooting purposes
-
-        ## Explore unknown map and save map to file
-
-        ## Get current pose from 'navigator' node
-        curr_pose = self.get_curr_pose()
-        print(curr_pose.x)
-        print(curr_pose.y)
-        ## Get centroid of best frontier from 'frontier explorer'
-        path = self.get_path_to_frontier(curr_pose.x, curr_pose.y)
-        ## If frontiers to explore: Command 'navigator' node to drive to frontier centroid
-        if(path.exists):
-            newState = "phase1"    
-            self.follow_path(path)
-            print("Navigate to pose")
-        else:
-            newState = "phase2"
-            print("Finished generating map!")
-
-        return newState
 
 
 
-    def PhaseTwo(self):
-        print("PhaseTwo state!")    # Comment for troubleshooting purposes
+    def PhaseThree(self):
+        print("PhaseThree state!")    # Comment for troubleshooting purposes
 
         ## Navigate back to starting pose
 

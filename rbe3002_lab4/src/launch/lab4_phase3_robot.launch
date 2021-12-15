@@ -1,0 +1,47 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="slam_methods" default="gmapping" doc="slam type [gmapping, cartographer, hector, karto, frontier_exploration]"/>
+  <arg name="configuration_basename" default="turtlebot3_lds_2d.lua"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="multi_robot_name" default=""/>
+
+  <!-- Turtlebot3 -->
+  <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+    <arg name="model" value="$(arg model)" />
+    <arg name="multi_robot_name" value="$(arg multi_robot_name)"/>
+  </include>
+
+  <!-- Joint State Publisher -->
+  <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher">
+    <param name="use_gui" value="true"/>
+    <param name="rate" value="50"/>
+  </node>
+
+  <!-- Map Server -->
+  <arg name="map_file" default="$(find rbe3002_lab4)/maps/map1.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
+
+  <!-- AMCL -->
+  <node pkg="amcl" type="amcl" name="amcl">
+    <arg name="scan" value="base_scan"/>
+  </node>
+
+  <!-- RVIZ -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find rbe3002_lab4)/src/rviz/teleop_test.rviz"/>
+  </group>
+
+  <!-- C-Space Calculator -->
+  <node pkg="rbe3002_lab4" type="cspace_calculator.py" name="cspace_calculator"/>
+
+  <!-- Path Planner -->
+  <node pkg="rbe3002_lab4" type="path_planner.py" name="path_planner"/>
+
+  <!-- Navigator -->
+  <node pkg="rbe3002_lab4" type="navigator.py" name="navigator"/>
+
+  <!-- Lab4 Phase 3 -->
+  <!-- <node pkg="rbe3002_lab4" type="lab4_phase3.py" name="lab4_phase3"/> -->
+
+</launch>

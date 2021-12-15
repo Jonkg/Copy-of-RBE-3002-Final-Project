@@ -22,9 +22,7 @@
   <arg name="map_file" default="$(find rbe3002_lab4)/maps/map1.yaml"/> <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" /> 
 
   <!-- AMCL -->
-  <node pkg="amcl" type="amcl" name="amcl">
-    <arg name="scan" value="base_scan"/>
-  </node>
+  <include file="$(find rbe3002_lab4)/src/launch/amcl_custom.launch">
 
   <!-- RVIZ -->
   <group if="$(arg open_rviz)"> 
